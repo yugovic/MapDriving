@@ -1,0 +1,15 @@
+{
+  "name": "map-driving",
+  "version": "1.0.0",
+  "description": "Map Driving Application",
+  "main": "index.js",
+  "scripts": {
+    "start": "http-server -p 5555",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "http-server": "^14.1.1"
+  }
+}

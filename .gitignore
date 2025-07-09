@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Node.js（将来的に使用する可能性があるため）
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# エディタ・IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ログファイル
+*.log
+
+# 一時ファイル
+*.tmp
+*.temp
+.cache/
+
+# ローカル設定ファイル
+.env.local
+.env.*.local
+
+# ビルド出力（将来的に使用する可能性があるため）
+dist/
+build/

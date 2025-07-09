@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalStorage デバッグツール</title>
+    <style>
+        body {
+            font-family: monospace;
+            background-color: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #4ecdc4;
+        }
+        
+        .section {
+            background-color: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        button {
+            background-color: #4ecdc4;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        
+        button:hover {
+            background-color: #3cbcb4;
+        }
+        
+        button.danger {
+            background-color: #ff6b6b;
+        }
+        
+        button.danger:hover {
+            background-color: #ff5252;
+        }
+        
+        pre {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 3px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .log {
+            height: 300px;
+            overflow-y: auto;
+            background-color: #333;
+            padding: 15px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LocalStorage デバッグツール</h1>
+        
+        <div class="section">
+            <h2>LocalStorage 内容</h2>
+            <button onclick="showLocalStorage()">更新</button>
+            <button onclick="clearMapDrivingAssets()" class="danger">mapDrivingAssetsを削除</button>
+            <button onclick="clearAllLocalStorage()" class="danger">すべて削除</button>
+            <pre id="localStorageContent"></pre>
+        </div>
+        
+        <div class="section">
+            <h2>mapDrivingAssets の詳細</h2>
+            <pre id="mapDrivingAssetsDetail"></pre>
+        </div>
+        
+        <div class="section">
+            <h2>テストデータの生成</h2>
+            <button onclick="createTestData1()">テストデータ1（シンプル）</button>
+            <button onclick="createTestData2()">テストデータ2（複雑）</button>
+            <button onclick="createTestData3()">テストデータ3（空）</button>
+        </div>
+        
+        <div class="section">
+            <h2>ログ</h2>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+    
+    <script>
+        function log(message, data = null) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            let logMessage = `[${timestamp}] ${message}`;
+            if (data) {
+                logMessage += '\n' + JSON.stringify(data, null, 2);
+            }
+            logDiv.innerHTML += logMessage + '\n\n';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function showLocalStorage() {
+            const content = document.getElementById('localStorageContent');
+            const detail = document.getElementById('mapDrivingAssetsDetail');
+            
+            let localStorageData = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                localStorageData[key] = value;
+            }
+            
+            content.textContent = JSON.stringify(localStorageData, null, 2);
+            
+            // mapDrivingAssets の詳細
+            const mapDrivingAssets = localStorage.getItem('mapDrivingAssets');
+            if (mapDrivingAssets) {
+                try {
+                    const parsed = JSON.parse(mapDrivingAssets);
+                    detail.textContent = JSON.stringify(parsed, null, 2);
+                    log('mapDrivingAssets を解析しました', {
+                        コーン数: parsed.cones ? parsed.cones.length : 0,
+                        タイヤバリア数: parsed.tireBarriers ? parsed.tireBarriers.length : 0,
+                        スケール: parsed.scale,
+                        タイムスタンプ: new Date(parsed.timestamp).toLocaleString()
+                    });
+                } catch (e) {
+                    detail.textContent = 'JSON解析エラー: ' + e.message;
+                    log('mapDrivingAssets の解析に失敗しました', e.message);
+                }
+            } else {
+                detail.textContent = 'mapDrivingAssets が存在しません';
+                log('mapDrivingAssets が見つかりません');
+            }
+        }
+        
+        function clearMapDrivingAssets() {
+            if (confirm('mapDrivingAssets を削除しますか？')) {
+                localStorage.removeItem('mapDrivingAssets');
+                log('mapDrivingAssets を削除しました');
+                showLocalStorage();
+            }
+        }
+        
+        function clearAllLocalStorage() {
+            if (confirm('すべてのLocalStorageデータを削除しますか？')) {
+                localStorage.clear();
+                log('すべてのLocalStorageデータを削除しました');
+                showLocalStorage();
+            }
+        }
+        
+        function createTestData1() {
+            const testData = {
+                scale: 0.5,
+                cones: [
+                    { x: 10, z: 10, rotation: 0 },
+                    { x: -10, z: 10, rotation: 45 },
+                    { x: 10, z: -10, rotation: 90 },
+                    { x: -10, z: -10, rotation: 180 }
+                ],
+                tireBarriers: [
+                    { x: 0, z: 20, rotation: 0 },
+                    { x: 0, z: -20, rotation: 0 }
+                ],
+                timestamp: Date.now()
+            };
+            
+            localStorage.setItem('mapDrivingAssets', JSON.stringify(testData));
+            log('テストデータ1を作成しました', testData);
+            showLocalStorage();
+        }
+        
+        function createTestData2() {
+            const testData = {
+                scale: 1.0,
+                cones: [],
+                tireBarriers: [],
+                timestamp: Date.now()
+            };
+            
+            // コーンを円形に配置
+            for (let i = 0; i < 12; i++) {
+                const angle = (i / 12) * Math.PI * 2;
+                testData.cones.push({
+                    x: Math.cos(angle) * 30,
+                    z: Math.sin(angle) * 30,
+                    rotation: (angle * 180 / Math.PI) % 360
+                });
+            }
+            
+            // タイヤバリアを四角形に配置
+            for (let x = -40; x <= 40; x += 20) {
+                testData.tireBarriers.push({ x: x, z: 40, rotation: 0 });
+                testData.tireBarriers.push({ x: x, z: -40, rotation: 0 });
+            }
+            for (let z = -20; z <= 20; z += 20) {
+                testData.tireBarriers.push({ x: 40, z: z, rotation: 90 });
+                testData.tireBarriers.push({ x: -40, z: z, rotation: 90 });
+            }
+            
+            localStorage.setItem('mapDrivingAssets', JSON.stringify(testData));
+            log('テストデータ2を作成しました', testData);
+            showLocalStorage();
+        }
+        
+        function createTestData3() {
+            const testData = {
+                scale: 0.5,
+                cones: [],
+                tireBarriers: [],
+                timestamp: Date.now()
+            };
+            
+            localStorage.setItem('mapDrivingAssets', JSON.stringify(testData));
+            log('テストデータ3（空）を作成しました', testData);
+            showLocalStorage();
+        }
+        
+        // 初期表示
+        window.addEventListener('DOMContentLoaded', () => {
+            showLocalStorage();
+            log('デバッグツールを起動しました');
+        });
+    </script>
+</body>
+</html>

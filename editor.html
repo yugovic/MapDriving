@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>富士スピードウェイ - アセットエディター</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #fff;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #sidebar {
+            width: 250px;
+            background-color: #2a2a2a;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #444;
+        }
+        
+        #sidebar h2 {
+            margin-top: 0;
+            color: #4ecdc4;
+            font-size: 18px;
+        }
+        
+        .asset-button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #3a3a3a;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .asset-button:hover {
+            background-color: #4a4a4a;
+        }
+        
+        .asset-button.selected {
+            background-color: #4ecdc4;
+            color: #000;
+        }
+        
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background-color: #0a0a0a;
+        }
+        
+        #editorCanvas {
+            position: absolute;
+            cursor: crosshair;
+            background-color: #1a1a1a;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(42, 42, 42, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        #controls button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            background-color: #4ecdc4;
+            color: #000;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        #controls button:hover {
+            background-color: #3cbcb4;
+        }
+        
+        #info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(42, 42, 42, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        #asset-list {
+            margin-top: 20px;
+            border-top: 1px solid #444;
+            padding-top: 20px;
+        }
+        
+        #asset-list h3 {
+            font-size: 16px;
+            color: #ff6b6b;
+        }
+        
+        .asset-item {
+            padding: 5px;
+            margin: 5px 0;
+            background-color: #3a3a3a;
+            border-radius: 3px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .asset-item:hover {
+            background-color: #4a4a4a;
+        }
+        
+        .asset-item.selected {
+            background-color: #4ecdc4;
+            color: #000;
+        }
+        
+        .delete-btn {
+            background-color: #ff6b6b;
+            color: #fff;
+            border: none;
+            padding: 2px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        
+        .delete-btn:hover {
+            background-color: #ff5252;
+        }
+        
+        #scale-control {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #444;
+        }
+        
+        #scale-control label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        #scale-control input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        
+        #scale-value {
+            text-align: center;
+            color: #4ecdc4;
+        }
+        
+        .export-import {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #444;
+        }
+        
+        .export-import button {
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px;
+            background-color: #4ecdc4;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .export-import button:hover {
+            background-color: #3cbcb4;
+        }
+        
+        #import-file {
+            display: none;
+        }
+        
+        .grid-toggle {
+            margin-top: 10px;
+        }
+        
+        .grid-toggle input[type="checkbox"] {
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h2>アセット選択</h2>
+        <button class="asset-button" data-type="cone">コーン</button>
+        <button class="asset-button" data-type="tire">タイヤバリア</button>
+        <button class="asset-button" data-type="start-line">スタートライン</button>
+        
+        <div style="margin-top: 20px; padding: 10px; background-color: #333; border-radius: 5px; font-size: 12px;">
+            <strong>操作方法:</strong><br>
+            • クリック: 配置/選択<br>
+            • Shift+クリック: 複数選択<br>
+            • ドラッグ: 移動<br>
+            • Ctrl+ホイール: 回転<br>
+            • Delete: 削除<br>
+            • Ctrl+C/V: コピー/ペースト<br>
+            • Ctrl+D: 複製<br>
+            • R: 15°回転
+        </div>
+        
+        <div id="scale-control">
+            <label for="mapScale">マップスケール</label>
+            <input type="range" id="mapScale" min="0.25" max="4" step="0.25" value="0.5">
+            <div id="scale-value">0.50x</div>
+        </div>
+        
+        <div class="grid-toggle">
+            <label>
+                <input type="checkbox" id="gridToggle" checked>
+                グリッド表示
+            </label>
+            <label style="margin-left: 10px;">
+                <input type="checkbox" id="snapToggle" checked>
+                スナップ (5m)
+            </label>
+        </div>
+        
+        <div id="asset-list">
+            <h3>配置済みアセット</h3>
+            <div id="asset-items"></div>
+        </div>
+        
+        <div class="export-import">
+            <button id="applyBtn" style="background-color: #ff6b6b; font-weight: bold;">ゲームに適用</button>
+            <button id="exportBtn">設定をエクスポート</button>
+            <button id="importBtn">設定をインポート</button>
+            <input type="file" id="import-file" accept=".json">
+        </div>
+    </div>
+    
+    <div id="canvas-container">
+        <canvas id="editorCanvas"></canvas>
+        
+        <div id="controls">
+            <button id="clearBtn">すべてクリア</button>
+            <button id="undoBtn">元に戻す (Ctrl+Z)</button>
+            <button id="redoBtn">やり直し (Ctrl+Shift+Z)</button>
+        </div>
+        
+        <div id="info">
+            <div>マウス位置: <span id="mousePos">X: 0, Z: 0</span></div>
+            <div>配置数: <span id="assetCount">0</span></div>
+            <div><span id="selectionInfo"></span></div>
+        </div>
+    </div>
+    
+    <script type="module" src="js/editor-enhanced.js"></script>
+    <script>
+        // デバッグ用：ページ読み込み時にオリジン情報を表示
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('=== エディターページ情報 ===');
+            console.log('オリジン:', window.location.origin);
+            console.log('プロトコル:', window.location.protocol);
+            console.log('パス:', window.location.pathname);
+            console.log('URL:', window.location.href);
+            console.log('=========================');
+        });
+    </script>
+</body>
+</html>

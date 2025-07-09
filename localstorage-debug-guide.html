@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalStorage デバッグガイド</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #f4f4f4;
+        }
+        
+        .guide-section {
+            background-color: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+        }
+        
+        h2 {
+            color: #4ecdc4;
+            border-bottom: 2px solid #4ecdc4;
+            padding-bottom: 10px;
+        }
+        
+        .code-block {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+        }
+        
+        .warning {
+            background-color: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            border-left: 5px solid #28a745;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        button {
+            background-color: #4ecdc4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background-color: #3cbcb4;
+        }
+        
+        .result {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>LocalStorage デバッグガイド</h1>
+    
+    <div class="guide-section">
+        <h2>1. ブラウザ開発者ツールでの確認方法</h2>
+        <p>各ページでlocalStorageの内容を確認する手順：</p>
+        <ol>
+            <li>対象のページ（index.html、editor.html、test-localstorage.html）を開く</li>
+            <li>F12キーまたは右クリック→「検証」で開発者ツールを開く</li>
+            <li>「Application」タブ（Chromeの場合）または「Storage」タブ（Firefoxの場合）を選択</li>
+            <li>左側のメニューから「Local Storage」→「file://」を選択</li>
+            <li>右側にlocalStorageの内容が表示される</li>
+        </ol>
+        
+        <div class="code-block">
+// コンソールで直接確認する場合
+console.log(localStorage.getItem('mapDrivingAssets'));
+console.log(JSON.parse(localStorage.getItem('mapDrivingAssets')));
+        </div>
+    </div>
+    
+    <div class="guide-section">
+        <h2>2. 現在のオリジン情報</h2>
+        <button onclick="checkOrigin()">オリジン情報を確認</button>
+        <div id="originResult" class="result"></div>
+    </div>
+    
+    <div class="guide-section">
+        <h2>3. localStorage同期テスト</h2>
+        <p>以下のボタンで、各ページ間のlocalStorage同期をテストできます：</p>
+        
+        <button onclick="writeTestData()">テストデータを書き込み</button>
+        <button onclick="readTestData()">テストデータを読み込み</button>
+        <button onclick="clearTestData()">テストデータをクリア</button>
+        <div id="syncResult" class="result"></div>
+    </div>
+    
+    <div class="guide-section">
+        <h2>4. file:// プロトコルの制限事項</h2>
+        <div class="warning">
+            <h3>⚠️ 重要な注意事項</h3>
+            <p><strong>file://</strong> プロトコルを使用している場合、ブラウザによってlocalStorageの動作が異なる場合があります：</p>
+            <ul>
+                <li><strong>Chrome</strong>: file:// でもlocalStorageは正常に動作しますが、同じディレクトリのファイル間でのみ共有されます</li>
+                <li><strong>Firefox</strong>: file:// でlocalStorageが制限される場合があります</li>
+                <li><strong>Safari</strong>: file:// でのlocalStorageに制限があります</li>
+            </ul>
+        </div>
+        
+        <div class="success">
+            <h3>✅ 推奨される解決方法</h3>
+            <p>ローカルサーバーを使用してテストすることを推奨します：</p>
+            <div class="code-block">
+# Python 3の場合
+python -m http.server 8000
+
+# Node.jsの場合（http-serverをインストール済み）
+http-server -p 8000
+
+# その後、ブラウザで以下にアクセス
+http://localhost:8000/index.html
+            </div>
+        </div>
+    </div>
+    
+    <div class="guide-section">
+        <h2>5. mapDrivingAssets キーの確認</h2>
+        <button onclick="checkMapDrivingAssets()">mapDrivingAssetsを確認</button>
+        <div id="mapDrivingResult" class="result"></div>
+    </div>
+    
+    <script>
+        function checkOrigin() {
+            const result = document.getElementById('originResult');
+            result.textContent = `現在のオリジン: ${window.location.origin}
+現在のプロトコル: ${window.location.protocol}
+現在のホスト: ${window.location.host}
+現在のパス: ${window.location.pathname}
+現在のURL: ${window.location.href}`;
+        }
+        
+        function writeTestData() {
+            const testData = {
+                scale: 0.5,
+                cones: [
+                    { x: 10, z: 10, rotation: 45 },
+                    { x: -10, z: -10, rotation: 135 }
+                ],
+                tireBarriers: [
+                    { x: 20, z: 0, rotation: 0 }
+                ],
+                timestamp: Date.now()
+            };
+            
+            try {
+                localStorage.setItem('mapDrivingAssets', JSON.stringify(testData));
+                document.getElementById('syncResult').textContent = 
+                    '✅ テストデータを書き込みました:\n' + JSON.stringify(testData, null, 2);
+            } catch (e) {
+                document.getElementById('syncResult').textContent = 
+                    '❌ エラー: ' + e.message;
+            }
+        }
+        
+        function readTestData() {
+            try {
+                const data = localStorage.getItem('mapDrivingAssets');
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    document.getElementById('syncResult').textContent = 
+                        '✅ データを読み込みました:\n' + JSON.stringify(parsed, null, 2);
+                } else {
+                    document.getElementById('syncResult').textContent = 
+                        '⚠️ mapDrivingAssetsが存在しません';
+                }
+            } catch (e) {
+                document.getElementById('syncResult').textContent = 
+                    '❌ エラー: ' + e.message;
+            }
+        }
+        
+        function clearTestData() {
+            localStorage.removeItem('mapDrivingAssets');
+            document.getElementById('syncResult').textContent = 
+                '✅ mapDrivingAssetsを削除しました';
+        }
+        
+        function checkMapDrivingAssets() {
+            const result = document.getElementById('mapDrivingResult');
+            let output = '';
+            
+            // 全てのlocalStorageキーを表示
+            output += 'localStorage内の全キー:\n';
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                output += `- ${key}\n`;
+            }
+            
+            output += '\n';
+            
+            // mapDrivingAssetsの詳細
+            const mapData = localStorage.getItem('mapDrivingAssets');
+            if (mapData) {
+                try {
+                    const parsed = JSON.parse(mapData);
+                    output += 'mapDrivingAssetsの内容:\n';
+                    output += JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    output += 'mapDrivingAssetsのパースエラー: ' + e.message;
+                }
+            } else {
+                output += 'mapDrivingAssetsが見つかりません';
+            }
+            
+            result.textContent = output;
+        }
+        
+        // ページ読み込み時に自動でオリジン情報を表示
+        window.addEventListener('DOMContentLoaded', () => {
+            checkOrigin();
+        });
+    </script>
+</body>
+</html>
