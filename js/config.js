@@ -47,6 +47,12 @@ export const CONFIG = {
             HEIGHT: 10,
             SIDE_OFFSET: 0,
             FOLLOW_FACTOR: 0.1
+        },
+        FOLLOW_MODE: {
+            DISTANCE: 8,
+            HEIGHT: 3,
+            LOOK_AT_HEIGHT: 1,
+            SMOOTHNESS: 0.1
         }
     },
     

@@ -10,6 +10,7 @@ export class InputManager {
         };
         
         this.debugCallback = null;
+        this.cameraCallback = null;
         
         this.init();
     }
@@ -52,6 +53,11 @@ export class InputManager {
             case 'shift':
                 this.keys.turbo = true;
                 break;
+            case 'c':
+                if (this.cameraCallback) {
+                    this.cameraCallback();
+                }
+                break;
         }
     }
     
@@ -93,5 +99,9 @@ export class InputManager {
     
     setDebugCallback(callback) {
         this.debugCallback = callback;
+    }
+    
+    setCameraCallback(callback) {
+        this.cameraCallback = callback;
     }
 }

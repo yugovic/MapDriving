@@ -107,6 +107,10 @@ class Game {
             debugModal.style.display = debugModal.style.display === 'block' ? 'none' : 'block';
         });
         
+        this.inputManager.setCameraCallback(() => {
+            this.sceneManager.toggleCameraMode();
+        });
+        
         // マップサイズ
         sliders.mapSize.slider.addEventListener('input', (e) => {
             const scale = parseFloat(e.target.value);

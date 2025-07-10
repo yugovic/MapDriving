@@ -6,6 +6,8 @@ export class SceneManager {
         this.renderer = null;
         this.camera = null;
         this.container = null;
+        this.cameraMode = 'overview'; // 'overview' or 'follow'
+        this.followCameraTarget = new THREE.Vector3();
         
         this.init();
     }
@@ -89,15 +91,41 @@ export class SceneManager {
     updateCameraPosition(target, offset = CONFIG.CAMERA.ADJUSTMENTS) {
         const targetPosition = new THREE.Vector3().copy(target.position);
         
-        const idealPosition = new THREE.Vector3(
-            targetPosition.x + offset.SIDE_OFFSET,
-            targetPosition.y + offset.HEIGHT,
-            targetPosition.z + offset.DISTANCE
-        );
-        
-        this.camera.position.lerp(idealPosition, offset.FOLLOW_FACTOR);
-        
-        this.camera.lookAt(targetPosition);
+        if (this.cameraMode === 'overview') {
+            // 俯瞰視点
+            const idealPosition = new THREE.Vector3(
+                targetPosition.x + offset.SIDE_OFFSET,
+                targetPosition.y + offset.HEIGHT,
+                targetPosition.z + offset.DISTANCE
+            );
+            
+            this.camera.position.lerp(idealPosition, offset.FOLLOW_FACTOR);
+            this.camera.lookAt(targetPosition);
+        } else if (this.cameraMode === 'follow') {
+            // 追従視点
+            // Cannon.jsのQuaternionからThree.jsのVector3への変換
+            const forward = new CANNON.Vec3(0, 0, 1);
+            target.quaternion.vmult(forward, forward);
+            
+            // 車の後ろの位置を計算
+            const idealPosition = new THREE.Vector3(
+                targetPosition.x - forward.x * CONFIG.CAMERA.FOLLOW_MODE.DISTANCE,
+                targetPosition.y + CONFIG.CAMERA.FOLLOW_MODE.HEIGHT,
+                targetPosition.z - forward.z * CONFIG.CAMERA.FOLLOW_MODE.DISTANCE
+            );
+            
+            // スムーズにカメラを移動
+            this.camera.position.lerp(idealPosition, CONFIG.CAMERA.FOLLOW_MODE.SMOOTHNESS);
+            
+            // 車の少し上を見る
+            const lookAtTarget = new THREE.Vector3(
+                targetPosition.x,
+                targetPosition.y + CONFIG.CAMERA.FOLLOW_MODE.LOOK_AT_HEIGHT,
+                targetPosition.z
+            );
+            this.followCameraTarget.lerp(lookAtTarget, CONFIG.CAMERA.FOLLOW_MODE.SMOOTHNESS);
+            this.camera.lookAt(this.followCameraTarget);
+        }
         
         // ライトも車の位置に合わせて移動（影が車の近くに落ちるように）
         if (this.directionalLight) {
@@ -108,6 +136,15 @@ export class SceneManager {
             );
             this.directionalLight.target.position.copy(targetPosition);
             this.directionalLight.target.updateMatrixWorld();
+        }
+    }
+    
+    toggleCameraMode() {
+        this.cameraMode = this.cameraMode === 'overview' ? 'follow' : 'overview';
+        
+        // カメラモードを切り替えた時に、現在の車の位置を即座に反映
+        if (this.cameraMode === 'follow') {
+            this.followCameraTarget.copy(this.camera.position);
         }
     }
     
