@@ -50,6 +50,8 @@ export class AssetsManager {
     
     createFromConfig(config) {
         console.log('設定からアセットを作成中...');
+        console.log('設定内容:', config);
+        
         if (config.cones) {
             console.log(`コーンを${config.cones.length}個作成`);
             this.createConesFromData(config.cones);
@@ -57,6 +59,10 @@ export class AssetsManager {
         if (config.tireBarriers) {
             console.log(`タイヤバリアを${config.tireBarriers.length}個作成`);
             this.createTireBarriersFromData(config.tireBarriers);
+        }
+        if (config.cubeStacks) {
+            console.log(`積み重ねキューブを${config.cubeStacks.length}個作成`);
+            this.createCubeStacksFromData(config.cubeStacks);
         }
     }
     
@@ -180,6 +186,68 @@ export class AssetsManager {
         console.log(`タイヤバリア作成完了: ${this.assets.filter(a => a.userData.type === 'tire').length}個のタイヤがシーンに存在`);
     }
     
+    createCubeStacksFromData(cubeStackData) {
+        console.log(`積み重ねキューブ作成開始: ${cubeStackData.length}個のスタック`);
+        
+        const cubeSize = ASSETS_CONFIG.physics.cube.size || 1.5;
+        const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+        const cubeMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x4488cc,
+            metalness: 0.3,
+            roughness: 0.7
+        });
+        
+        cubeStackData.forEach((stack, stackIndex) => {
+            const count = stack.count || 3;
+            console.log(`スタック${stackIndex}を作成: position=(${stack.x}, ${stack.z}), count=${count}`);
+            
+            for (let i = 0; i < count; i++) {
+                // Three.jsメッシュ
+                const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+                const yPos = cubeSize * 0.5 + i * cubeSize;
+                cube.position.set(stack.x, yPos, stack.z);
+                if (stack.rotation) {
+                    cube.rotation.y = (stack.rotation * Math.PI) / 180;
+                }
+                cube.castShadow = true;
+                cube.receiveShadow = true;
+                cube.userData.type = 'cubeStack';
+                cube.userData.stackIndex = stackIndex;
+                cube.userData.level = i;
+                this.scene.add(cube);
+                this.assets.push(cube);
+                
+                // Cannon.js物理ボディ
+                const cubeShape = new CANNON.Box(new CANNON.Vec3(cubeSize/2, cubeSize/2, cubeSize/2));
+                const cubeBody = new CANNON.Body({
+                    mass: ASSETS_CONFIG.physics.cube.mass,
+                    shape: cubeShape,
+                    position: new CANNON.Vec3(stack.x, yPos, stack.z)
+                });
+                
+                if (stack.rotation) {
+                    const quaternion = new CANNON.Quaternion();
+                    quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), (stack.rotation * Math.PI) / 180);
+                    cubeBody.quaternion = quaternion;
+                }
+                
+                cubeBody.material = new CANNON.Material({
+                    friction: ASSETS_CONFIG.physics.cube.friction,
+                    restitution: ASSETS_CONFIG.physics.cube.restitution
+                });
+                
+                // メッシュとボディを関連付け
+                cube.userData.body = cubeBody;
+                cubeBody.userData = { mesh: cube };
+                
+                this.physicsWorld.world.addBody(cubeBody);
+                this.physicsBodies.push(cubeBody);
+            }
+        });
+        
+        console.log(`積み重ねキューブ作成完了: ${this.assets.filter(a => a.userData.type === 'cubeStack').length}個のキューブがシーンに存在`);
+    }
+    
     createStartFinishLine() {
         const lineGeometry = new THREE.PlaneGeometry(10, 0.5);
         const lineMaterial = new THREE.MeshStandardMaterial({ 
@@ -191,6 +259,7 @@ export class AssetsManager {
         const startLine = new THREE.Mesh(lineGeometry, lineMaterial);
         startLine.rotation.x = -Math.PI / 2;
         startLine.position.set(0, 0.01, 0);
+        startLine.userData.type = 'startLine';
         this.scene.add(startLine);
         this.assets.push(startLine);
         
@@ -206,6 +275,7 @@ export class AssetsManager {
                     const checker = new THREE.Mesh(checkerGeometry, checkerMaterial);
                     checker.rotation.x = -Math.PI / 2;
                     checker.position.set(i * checkerSize + checkerSize / 2, 0.02, j * checkerSize - 0.25);
+                    checker.userData.type = 'checker';
                     this.scene.add(checker);
                     this.assets.push(checker);
                 }
@@ -222,6 +292,18 @@ export class AssetsManager {
                 mesh.quaternion.copy(body.quaternion);
             }
         });
+        
+        // デバッグ: キューブスタックの表示状態を確認（一度だけ）
+        if (!this._cubeStackDebugLogged) {
+            const cubeStacks = this.assets.filter(a => a.userData.type === 'cubeStack');
+            if (cubeStacks.length > 0) {
+                console.log('キューブスタックの状態:');
+                cubeStacks.forEach((cube, i) => {
+                    console.log(`  キューブ${i}: visible=${cube.visible}, position=(${Math.round(cube.position.x)}, ${Math.round(cube.position.y)}, ${Math.round(cube.position.z)}), スタックID=${cube.userData.stackIndex}, レベル=${cube.userData.level}`);
+                });
+                this._cubeStackDebugLogged = true;
+            }
+        }
     }
     
     updateScale(scale) {
@@ -272,6 +354,7 @@ export class AssetsManager {
                 console.log('パース成功:', savedConfig);
                 console.log('  - コーン数:', savedConfig.cones ? savedConfig.cones.length : 0);
                 console.log('  - タイヤバリア数:', savedConfig.tireBarriers ? savedConfig.tireBarriers.length : 0);
+                console.log('  - 積み重ねキューブ数:', savedConfig.cubeStacks ? savedConfig.cubeStacks.length : 0);
                 console.log('  - スケール:', savedConfig.scale);
                 console.log('  - タイムスタンプ:', new Date(savedConfig.timestamp).toLocaleString());
             }
@@ -307,10 +390,33 @@ export class AssetsManager {
         console.log('=== エディターから再読み込み完了 ===');
         console.log('最終的なアセット数:', this.assets.length);
         console.log('最終的な物理ボディ数:', this.physicsBodies.length);
-        console.log('シーン内のオブジェクト一覧:');
+        
+        // アセットの種類ごとの詳細
+        const assetCounts = {};
+        const physicsAssets = [];
+        const noPhysicsAssets = [];
+        
         this.assets.forEach((asset, index) => {
-            console.log(`  ${index}: type=${asset.userData.type || 'unknown'}, position=(${asset.position.x}, ${asset.position.z})`);
+            const type = asset.userData.type || 'unknown';
+            assetCounts[type] = (assetCounts[type] || 0) + 1;
+            
+            if (asset.userData.body) {
+                physicsAssets.push(`${type} at (${Math.round(asset.position.x)}, ${Math.round(asset.position.z)})`);
+            } else {
+                noPhysicsAssets.push(`${type} at (${Math.round(asset.position.x)}, ${Math.round(asset.position.z)})`);
+            }
         });
+        
+        console.log('アセットの種類別カウント:');
+        Object.entries(assetCounts).forEach(([type, count]) => {
+            console.log(`  ${type}: ${count}個`);
+        });
+        
+        console.log('物理ボディを持つアセット:', physicsAssets.length);
+        console.log('物理ボディを持たないアセット:', noPhysicsAssets.length);
+        if (noPhysicsAssets.length > 0) {
+            console.log('物理ボディなし:', noPhysicsAssets);
+        }
     }
     
     clearAllAssets() {
@@ -320,7 +426,7 @@ export class AssetsManager {
         
         // スタートライン以外のThree.jsメッシュを削除
         const assetsToRemove = this.assets.filter(asset => 
-            asset.userData.type === 'cone' || asset.userData.type === 'tire'
+            asset.userData.type === 'cone' || asset.userData.type === 'tire' || asset.userData.type === 'cubeStack'
         );
         
         console.log('削除対象のアセット数:', assetsToRemove.length);

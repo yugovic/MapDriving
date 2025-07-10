@@ -41,6 +41,14 @@ export const ASSETS_CONFIG = {
         { x: 50, z: -10 }
     ],
     
+    // 積み重ねキューブの配置
+    cubeStacks: [
+        // サンプル配置
+        { x: 0, z: -30, count: 3 },
+        { x: 10, z: -30, count: 5 },
+        { x: -10, z: -30, count: 4 }
+    ],
+    
     // 物理設定
     physics: {
         cone: {
@@ -52,6 +60,12 @@ export const ASSETS_CONFIG = {
             mass: 5,            // タイヤは重め
             restitution: 0.6,   // ゴムなので跳ねやすい
             friction: 0.9       // 高摩擦
+        },
+        cube: {
+            mass: 2,            // キューブの重さ
+            restitution: 0.2,   // 低反発
+            friction: 0.7,      // 中程度の摩擦
+            size: 1.5           // キューブのサイズ
         }
     }
 };

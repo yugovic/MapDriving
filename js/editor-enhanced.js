@@ -149,6 +149,20 @@ class EnhancedAssetEditor {
             });
         });
         
+        // 積み重ねキューブの読み込み
+        if (ASSETS_CONFIG.cubeStacks) {
+            ASSETS_CONFIG.cubeStacks.forEach(stack => {
+                this.assets.push({
+                    type: 'cubeStack',
+                    x: stack.x,
+                    z: stack.z,
+                    rotation: 0,
+                    count: stack.count || 3,
+                    id: this.generateId()
+                });
+            });
+        }
+        
         console.log('デフォルト設定から読み込んだアセット数:', this.assets.length);
         this.updateAssetList();
     }
@@ -413,6 +427,14 @@ class EnhancedAssetEditor {
             e.preventDefault();
             this.rotateSelected(e.shiftKey ? -15 : 15);
         }
+        
+        // +/-: 積み重ねキューブの数を調整
+        if ((e.key === '+' || e.key === '=') && this.selectedAssets.size > 0) {
+            this.adjustCubeStackCount(1);
+        }
+        if (e.key === '-' && this.selectedAssets.size > 0) {
+            this.adjustCubeStackCount(-1);
+        }
     }
     
     handleKeyUp(e) {
@@ -448,6 +470,11 @@ class EnhancedAssetEditor {
             rotation: 0,
             id: this.generateId()
         };
+        
+        // 積み重ねキューブの場合、デフォルトの積み重ね数を設定
+        if (this.selectedAssetType === 'cubeStack') {
+            newAsset.count = 3; // デフォルトで3個
+        }
         
         this.assets.push(newAsset);
         this.selectedAssets.clear();
@@ -771,6 +798,8 @@ class EnhancedAssetEditor {
                 this.drawCone(pos.x, pos.y, isSelected, isHovered);
             } else if (asset.type === 'tire') {
                 this.drawTire(pos.x, pos.y, isSelected, isHovered);
+            } else if (asset.type === 'cubeStack') {
+                this.drawCubeStack(pos.x, pos.y, asset.count || 3, isSelected, isHovered);
             }
             
             // 選択ハンドル
@@ -812,6 +841,41 @@ class EnhancedAssetEditor {
         this.ctx.moveTo(x - radius, y);
         this.ctx.lineTo(x + radius, y);
         this.ctx.stroke();
+    }
+    
+    drawCubeStack(x, y, count, isSelected, isHovered) {
+        const cubeSize = 6;
+        const baseY = y;
+        
+        // キューブを下から上に描画
+        for (let i = 0; i < count; i++) {
+            const cubeY = baseY - i * cubeSize * 0.8; // 積み重ね時のオフセット
+            
+            // キューブの影
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            this.ctx.fillRect(x - cubeSize/2 + 2, cubeY - cubeSize/2 + 2, cubeSize, cubeSize);
+            
+            // キューブ本体
+            if (isHovered) {
+                this.ctx.fillStyle = '#6aa3db';
+            } else if (isSelected) {
+                this.ctx.fillStyle = '#5599cc';
+            } else {
+                this.ctx.fillStyle = '#4488cc';
+            }
+            this.ctx.fillRect(x - cubeSize/2, cubeY - cubeSize/2, cubeSize, cubeSize);
+            
+            // 枠線
+            this.ctx.strokeStyle = isSelected ? '#ff6b6b' : '#336699';
+            this.ctx.lineWidth = isSelected ? 2 : 1;
+            this.ctx.strokeRect(x - cubeSize/2, cubeY - cubeSize/2, cubeSize, cubeSize);
+        }
+        
+        // 積み重ね数を表示
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(count.toString(), x, y + 10);
     }
     
     drawSelectionHandles(x, y, type) {
@@ -875,6 +939,8 @@ class EnhancedAssetEditor {
             this.drawCone(pos.x, pos.y, false, false);
         } else if (this.selectedAssetType === 'tire') {
             this.drawTire(pos.x, pos.y, false, false);
+        } else if (this.selectedAssetType === 'cubeStack') {
+            this.drawCubeStack(pos.x, pos.y, 3, false, false); // プレビューで3個固定
         }
         
         this.ctx.restore();
@@ -905,8 +971,9 @@ class EnhancedAssetEditor {
             }
             
             const rotation = asset.rotation ? ` (${asset.rotation}°)` : '';
+            const countInfo = asset.type === 'cubeStack' ? ` x${asset.count || 3}` : '';
             item.innerHTML = `
-                <span>${asset.type} (${asset.x}, ${asset.z})${rotation}</span>
+                <span>${asset.type}${countInfo} (${asset.x}, ${asset.z})${rotation}</span>
                 <button class="delete-btn" data-id="${asset.id}">削除</button>
             `;
             
@@ -954,6 +1021,27 @@ class EnhancedAssetEditor {
         }
     }
     
+    adjustCubeStackCount(delta) {
+        let hasChanged = false;
+        
+        this.selectedAssets.forEach(id => {
+            const asset = this.assets.find(a => a.id === id);
+            if (asset && asset.type === 'cubeStack') {
+                const newCount = Math.max(1, Math.min(10, (asset.count || 3) + delta));
+                if (newCount !== asset.count) {
+                    asset.count = newCount;
+                    hasChanged = true;
+                }
+            }
+        });
+        
+        if (hasChanged) {
+            this.saveHistory();
+            this.render();
+            this.updateAssetList();
+        }
+    }
+    
     applyToGame() {
         const config = {
             scale: this.scale,
@@ -967,6 +1055,12 @@ class EnhancedAssetEditor {
                 z: a.z,
                 rotation: a.rotation || 0
             })),
+            cubeStacks: this.assets.filter(a => a.type === 'cubeStack').map(a => ({ 
+                x: a.x, 
+                z: a.z,
+                rotation: a.rotation || 0,
+                count: a.count || 3
+            })),
             timestamp: Date.now()
         };
         
@@ -974,6 +1068,7 @@ class EnhancedAssetEditor {
         console.log('適用する設定:', config);
         console.log('コーン数:', config.cones.length);
         console.log('タイヤバリア数:', config.tireBarriers.length);
+        console.log('積み重ねキューブ数:', config.cubeStacks ? config.cubeStacks.length : 0);
         
         // localStorageに保存
         try {
