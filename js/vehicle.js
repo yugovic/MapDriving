@@ -114,8 +114,11 @@ export class Vehicle {
             { x: axisWidth, y: 0, z: -CONFIG.VEHICLE.CHASSIS_SIZE.z * 0.4 }
         ];
         
-        wheelPositions.forEach((pos) => {
+        wheelPositions.forEach((pos, index) => {
+            // フロントタイヤ（index 0, 1）とリアタイヤ（index 2, 3）で異なるグリップ値を使用
+            const isFront = index < 2;
             wheelOptions.chassisConnectionPointLocal = new CANNON.Vec3(pos.x, pos.y, pos.z);
+            wheelOptions.frictionSlip = isFront ? CONFIG.VEHICLE.WHEEL_FRONT_FRICTION_SLIP : CONFIG.VEHICLE.WHEEL_REAR_FRICTION_SLIP;
             this.vehicle.addWheel(wheelOptions);
         });
         
@@ -246,6 +249,175 @@ export class Vehicle {
             this.chassisBody.velocity.set(0, 0, 0);
             this.chassisBody.angularVelocity.set(0, 0, 0);
             this.chassisBody.quaternion.set(0, 0, 0, 1);
+        }
+    }
+    
+    // 動的パラメータ更新メソッド
+    updateMass(mass) {
+        CONFIG.VEHICLE.MASS = mass;
+        if (this.chassisBody) {
+            this.chassisBody.mass = mass;
+            this.chassisBody.updateMassProperties();
+        }
+    }
+    
+    updateMaxSpeed(speed) {
+        CONFIG.VEHICLE.MAX_SPEED = speed;
+    }
+    
+    updateEngineForce(force) {
+        CONFIG.VEHICLE.ENGINE_FORCE = force;
+    }
+    
+    updateTurboMultiplier(multiplier) {
+        CONFIG.VEHICLE.TURBO_MULTIPLIER = multiplier;
+    }
+    
+    updateBrakeForce(force) {
+        CONFIG.VEHICLE.BRAKE_FORCE = force;
+    }
+    
+    updateSteeringIncrement(increment) {
+        CONFIG.VEHICLE.STEERING_INCREMENT = increment;
+    }
+    
+    updateMaxSteering(value) {
+        CONFIG.VEHICLE.MAX_STEERING_VALUE = value;
+    }
+    
+    updateWheelRadius(radius) {
+        CONFIG.VEHICLE.WHEEL_RADIUS = radius;
+        // ホイールのメッシュを更新
+        if (this.wheelMeshes.length > 0) {
+            const wheelGeometry = new THREE.CylinderGeometry(
+                radius,
+                radius,
+                CONFIG.VEHICLE.WHEEL_WIDTH,
+                32
+            );
+            this.wheelMeshes.forEach(mesh => {
+                mesh.geometry.dispose();
+                mesh.geometry = wheelGeometry;
+            });
+        }
+    }
+    
+    updateWheelWidth(width) {
+        CONFIG.VEHICLE.WHEEL_WIDTH = width;
+        // ホイールのメッシュを更新
+        if (this.wheelMeshes.length > 0) {
+            const wheelGeometry = new THREE.CylinderGeometry(
+                CONFIG.VEHICLE.WHEEL_RADIUS,
+                CONFIG.VEHICLE.WHEEL_RADIUS,
+                width,
+                32
+            );
+            this.wheelMeshes.forEach(mesh => {
+                mesh.geometry.dispose();
+                mesh.geometry = wheelGeometry;
+            });
+        }
+    }
+    
+    updateSuspensionStiffness(stiffness) {
+        CONFIG.VEHICLE.WHEEL_SUSPENSION_STIFFNESS = stiffness;
+        if (this.vehicle) {
+            this.vehicle.wheelInfos.forEach(wheel => {
+                wheel.suspensionStiffness = stiffness;
+            });
+        }
+    }
+    
+    updateSuspensionDamping(damping) {
+        CONFIG.VEHICLE.WHEEL_SUSPENSION_DAMPING = damping;
+        if (this.vehicle) {
+            this.vehicle.wheelInfos.forEach(wheel => {
+                wheel.dampingRelaxation = damping;
+            });
+        }
+    }
+    
+    updateSuspensionCompression(compression) {
+        CONFIG.VEHICLE.WHEEL_SUSPENSION_COMPRESSION = compression;
+        if (this.vehicle) {
+            this.vehicle.wheelInfos.forEach(wheel => {
+                wheel.dampingCompression = compression;
+            });
+        }
+    }
+    
+    updateSuspensionRestLength(length) {
+        CONFIG.VEHICLE.WHEEL_SUSPENSION_REST_LENGTH = length;
+        if (this.vehicle) {
+            this.vehicle.wheelInfos.forEach(wheel => {
+                wheel.suspensionRestLength = length;
+            });
+        }
+    }
+    
+    updateWheelFriction(friction) {
+        CONFIG.VEHICLE.WHEEL_FRICTION_SLIP = friction;
+        if (this.vehicle) {
+            this.vehicle.wheelInfos.forEach(wheel => {
+                wheel.frictionSlip = friction;
+            });
+        }
+    }
+    
+    updateChassisWidth(width) {
+        CONFIG.VEHICLE.CHASSIS_SIZE.x = width;
+        // ホイール位置の調整
+        if (this.vehicle) {
+            const axisWidth = width * 0.42;
+            this.vehicle.wheelInfos[0].chassisConnectionPointLocal.x = -axisWidth;
+            this.vehicle.wheelInfos[1].chassisConnectionPointLocal.x = axisWidth;
+            this.vehicle.wheelInfos[2].chassisConnectionPointLocal.x = -axisWidth;
+            this.vehicle.wheelInfos[3].chassisConnectionPointLocal.x = axisWidth;
+        }
+    }
+    
+    updateChassisHeight(height) {
+        CONFIG.VEHICLE.CHASSIS_SIZE.y = height;
+        // 物理ボディは複雑なため更新しない（再作成が必要）
+    }
+    
+    updateChassisLength(length) {
+        CONFIG.VEHICLE.CHASSIS_SIZE.z = length;
+        // ホイール位置の調整
+        if (this.vehicle) {
+            this.vehicle.wheelInfos[0].chassisConnectionPointLocal.z = length * 0.4;
+            this.vehicle.wheelInfos[1].chassisConnectionPointLocal.z = length * 0.4;
+            this.vehicle.wheelInfos[2].chassisConnectionPointLocal.z = -length * 0.4;
+            this.vehicle.wheelInfos[3].chassisConnectionPointLocal.z = -length * 0.4;
+        }
+    }
+    
+    updateDownForce(force) {
+        CONFIG.VEHICLE.STABILIZATION.DOWN_FORCE = force;
+    }
+    
+    updateAngularDamping(damping) {
+        CONFIG.VEHICLE.STABILIZATION.ANGULAR_DAMPING = damping;
+        if (this.chassisBody) {
+            this.chassisBody.angularDamping = damping;
+        }
+    }
+    
+    updateFrontWheelFriction(friction) {
+        CONFIG.VEHICLE.WHEEL_FRONT_FRICTION_SLIP = friction;
+        // フロントタイヤ（index 0, 1）のみ更新
+        if (this.vehicle && this.vehicle.wheelInfos.length >= 2) {
+            this.vehicle.wheelInfos[0].frictionSlip = friction;
+            this.vehicle.wheelInfos[1].frictionSlip = friction;
+        }
+    }
+    
+    updateRearWheelFriction(friction) {
+        CONFIG.VEHICLE.WHEEL_REAR_FRICTION_SLIP = friction;
+        // リアタイヤ（index 2, 3）のみ更新
+        if (this.vehicle && this.vehicle.wheelInfos.length >= 4) {
+            this.vehicle.wheelInfos[2].frictionSlip = friction;
+            this.vehicle.wheelInfos[3].frictionSlip = friction;
         }
     }
 }

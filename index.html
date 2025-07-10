@@ -131,8 +131,18 @@
             padding: 30px;
             border-radius: 10px;
             color: white;
-            min-width: 400px;
+            min-width: 800px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .debug-controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
         }
         
         #debugContent h2 {
@@ -213,10 +223,138 @@
     <div id="debugModal">
         <div id="debugContent">
             <h2>デバッグメニュー</h2>
-            <div class="debug-control">
-                <label for="mapSizeSlider">マップサイズ</label>
-                <input type="range" id="mapSizeSlider" min="0.25" max="4" step="0.25" value="0.5">
-                <div class="debug-value" id="mapSizeValue">0.50x</div>
+            <div class="debug-controls-grid">
+                <div class="debug-control">
+                    <label for="mapSizeSlider">マップサイズ</label>
+                    <input type="range" id="mapSizeSlider" min="0.25" max="4" step="0.25" value="0.5">
+                    <div class="debug-value" id="mapSizeValue">0.50x</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="massSlider">車両質量</label>
+                    <input type="range" id="massSlider" min="50" max="1000" step="10" value="500">
+                    <div class="debug-value" id="massValue">500</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="maxSpeedSlider">最高速度 (km/h)</label>
+                    <input type="range" id="maxSpeedSlider" min="30" max="200" step="5" value="72">
+                    <div class="debug-value" id="maxSpeedValue">72</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="engineForceSlider">エンジン出力</label>
+                    <input type="range" id="engineForceSlider" min="100" max="2000" step="50" value="1400">
+                    <div class="debug-value" id="engineForceValue">1400</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="turboSlider">ターボ倍率</label>
+                    <input type="range" id="turboSlider" min="1.5" max="5" step="0.5" value="3">
+                    <div class="debug-value" id="turboValue">3.0</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="brakeForceSlider">ブレーキ力</label>
+                    <input type="range" id="brakeForceSlider" min="10" max="100" step="5" value="35">
+                    <div class="debug-value" id="brakeForceValue">35</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="steeringIncrementSlider">ステアリング反応速度</label>
+                    <input type="range" id="steeringIncrementSlider" min="0.01" max="0.2" step="0.005" value="0.1">
+                    <div class="debug-value" id="steeringIncrementValue">0.100</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="maxSteeringSlider">ステアリング最大角度</label>
+                    <input type="range" id="maxSteeringSlider" min="0.3" max="1.5" step="0.05" value="1.0">
+                    <div class="debug-value" id="maxSteeringValue">1.00</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="wheelRadiusSlider">ホイール半径</label>
+                    <input type="range" id="wheelRadiusSlider" min="0.2" max="0.5" step="0.05" value="0.3">
+                    <div class="debug-value" id="wheelRadiusValue">0.30</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="wheelWidthSlider">ホイール幅</label>
+                    <input type="range" id="wheelWidthSlider" min="0.15" max="0.4" step="0.05" value="0.25">
+                    <div class="debug-value" id="wheelWidthValue">0.25</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="suspensionStiffnessSlider">サスペンション硬さ</label>
+                    <input type="range" id="suspensionStiffnessSlider" min="20" max="200" step="5" value="100">
+                    <div class="debug-value" id="suspensionStiffnessValue">100</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="suspensionDampingSlider">サスペンションダンピング</label>
+                    <input type="range" id="suspensionDampingSlider" min="2" max="20" step="1" value="8">
+                    <div class="debug-value" id="suspensionDampingValue">8</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="suspensionCompressionSlider">サスペンション圧縮</label>
+                    <input type="range" id="suspensionCompressionSlider" min="1" max="10" step="0.2" value="4.4">
+                    <div class="debug-value" id="suspensionCompressionValue">4.4</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="suspensionRestLengthSlider">サスペンション長</label>
+                    <input type="range" id="suspensionRestLengthSlider" min="0.2" max="0.6" step="0.05" value="0.35">
+                    <div class="debug-value" id="suspensionRestLengthValue">0.35</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="frictionSlipSlider">ホイール摩擦（全体）</label>
+                    <input type="range" id="frictionSlipSlider" min="2" max="20" step="1" value="8">
+                    <div class="debug-value" id="frictionSlipValue">8</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="frontFrictionSlider">フロントタイヤグリップ</label>
+                    <input type="range" id="frontFrictionSlider" min="2" max="30" step="0.5" value="20">
+                    <div class="debug-value" id="frontFrictionValue">20.0</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="rearFrictionSlider">リアタイヤグリップ</label>
+                    <input type="range" id="rearFrictionSlider" min="1" max="20" step="0.5" value="2">
+                    <div class="debug-value" id="rearFrictionValue">2.0</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="chassisWidthSlider">車体の幅</label>
+                    <input type="range" id="chassisWidthSlider" min="0.8" max="2.0" step="0.1" value="1.3">
+                    <div class="debug-value" id="chassisWidthValue">1.3</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="chassisHeightSlider">車体の高さ</label>
+                    <input type="range" id="chassisHeightSlider" min="0.5" max="1.5" step="0.05" value="0.75">
+                    <div class="debug-value" id="chassisHeightValue">0.75</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="chassisLengthSlider">車体の長さ</label>
+                    <input type="range" id="chassisLengthSlider" min="2.0" max="4.0" step="0.1" value="2.8">
+                    <div class="debug-value" id="chassisLengthValue">2.8</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="downForceSlider">ダウンフォース</label>
+                    <input type="range" id="downForceSlider" min="0" max="300" step="10" value="100">
+                    <div class="debug-value" id="downForceValue">100</div>
+                </div>
+                
+                <div class="debug-control">
+                    <label for="angularDampingSlider">角度ダンピング</label>
+                    <input type="range" id="angularDampingSlider" min="0.1" max="1.0" step="0.1" value="0.4">
+                    <div class="debug-value" id="angularDampingValue">0.4</div>
+                </div>
             </div>
             <button id="closeDebug">閉じる (Ctrl+M)</button>
         </div>
