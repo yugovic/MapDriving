@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bruno Simonサイトのコリジョン設定解析</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 0;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(255,255,255,0.03) 10px,
+                rgba(255,255,255,0.03) 20px
+            );
+            animation: slide 20s linear infinite;
+        }
+        
+        @keyframes slide {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .subtitle {
+            color: #b8d4f1;
+            font-size: 1.2em;
+            margin-top: 10px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .section {
+            background: #1a1a1a;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border: 1px solid #333;
+        }
+        
+        .section h2 {
+            color: #4ecdc4;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            border-bottom: 2px solid #4ecdc4;
+            padding-bottom: 10px;
+        }
+        
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .comparison-card {
+            background: #252525;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #444;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .comparison-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(78, 205, 196, 0.2);
+        }
+        
+        .comparison-card h3 {
+            color: #ff6b6b;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .visual-demo {
+            background: #0f0f0f;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            position: relative;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .car-diagram {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+        }
+        
+        .car-visual {
+            position: relative;
+            width: 150px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px 15px 10px 10px;
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+            animation: hover-car 3s ease-in-out infinite;
+        }
+        
+        @keyframes hover-car {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .car-collision {
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border: 2px dashed #ff6b6b;
+            border-radius: 10px;
+            animation: pulse-border 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-border {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        
+        .wheel {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: #333;
+            border-radius: 50%;
+            bottom: -15px;
+        }
+        
+        .wheel:nth-child(2) { left: 10px; }
+        .wheel:nth-child(3) { right: 10px; }
+        
+        .arrow {
+            font-size: 2em;
+            color: #4ecdc4;
+            animation: slide-arrow 2s ease-in-out infinite;
+        }
+        
+        @keyframes slide-arrow {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(10px); }
+        }
+        
+        .collision-box {
+            width: 170px;
+            height: 100px;
+            border: 3px solid #4ecdc4;
+            border-radius: 5px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(78, 205, 196, 0.1);
+        }
+        
+        .collision-box::before {
+            content: 'Box Collision';
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4ecdc4;
+            color: #000;
+            padding: 2px 10px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        
+        .object-demo {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin: 30px 0;
+        }
+        
+        .object-example {
+            text-align: center;
+        }
+        
+        .object-visual {
+            position: relative;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        
+        .tree-model {
+            width: 60px;
+            height: 100px;
+            background: linear-gradient(to bottom, #4a7c59 0%, #8b4513 70%);
+            border-radius: 30px 30px 5px 5px;
+            position: relative;
+        }
+        
+        .tree-collision {
+            position: absolute;
+            width: 40px;
+            height: 80px;
+            border: 2px dashed #ff6b6b;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .sign-model {
+            width: 80px;
+            height: 100px;
+            background: linear-gradient(to bottom, #e74c3c 0%, #95a5a6 60%);
+            position: relative;
+            border-radius: 5px 5px 0 0;
+        }
+        
+        .sign-collision {
+            position: absolute;
+            width: 80px;
+            height: 100px;
+            border: 2px dashed #ff6b6b;
+            top: 0;
+            left: 0;
+        }
+        
+        .code-block {
+            background: #0d0d0d;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .code-block pre {
+            margin: 0;
+            color: #e0e0e0;
+        }
+        
+        .highlight {
+            color: #4ecdc4;
+            font-weight: bold;
+        }
+        
+        .warning {
+            background: rgba(255, 107, 107, 0.1);
+            border-left: 4px solid #ff6b6b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .success {
+            background: rgba(78, 205, 196, 0.1);
+            border-left: 4px solid #4ecdc4;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            margin: 30px 0;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .flow-step {
+            background: #252525;
+            border: 2px solid #444;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            min-width: 150px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .flow-step:hover {
+            background: #2a2a2a;
+            border-color: #4ecdc4;
+            transform: scale(1.05);
+        }
+        
+        .flow-step::after {
+            content: '→';
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.5em;
+            color: #4ecdc4;
+        }
+        
+        .flow-step:last-child::after {
+            display: none;
+        }
+        
+        .step-number {
+            background: #4ecdc4;
+            color: #000;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: bold;
+        }
+        
+        .implementation-steps {
+            background: #1f1f1f;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+        
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding-left: 40px;
+            position: relative;
+        }
+        
+        .step-item::before {
+            content: attr(data-step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #4ecdc4;
+            color: #000;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        
+        .interactive-demo {
+            background: #0f0f0f;
+            border-radius: 8px;
+            padding: 30px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .demo-button {
+            background: #4ecdc4;
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+        
+        .demo-button:hover {
+            background: #45b8b0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(78, 205, 196, 0.3);
+        }
+        
+        .demo-result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 5px;
+            min-height: 100px;
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .car-diagram {
+                flex-direction: column;
+            }
+            
+            .flow-step::after {
+                display: none;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Bruno Simonサイトのコリジョン設定解析</h1>
+        <p class="subtitle">Three.js + Cannon.js による効率的な物理演算の実装方法</p>
+    </header>
+    
+    <div class="container">
+        <!-- 概要セクション -->
+        <div class="section">
+            <h2>🎯 調査結果の概要</h2>
+            <p>Bruno Simonのポートフォリオサイトは、Three.jsとCannon.jsを使った優れた物理演算の実装例です。
+            特に注目すべきは、<strong class="highlight">表示用モデルとコリジョン用モデルを完全に分離</strong>している点です。</p>
+            
+            <div class="success">
+                <strong>重要な発見：</strong>Bruno Simonは複雑なConvexPolyhedronやTrimeshを使わず、
+                シンプルなBox、Cylinder、Sphereの組み合わせだけで正確なコリジョンを実現しています。
+            </div>
+        </div>
+        
+        <!-- 車のコリジョン設定 -->
+        <div class="section">
+            <h2>🚗 車のコリジョン設定</h2>
+            
+            <div class="visual-demo">
+                <div class="car-diagram">
+                    <div class="car-visual">
+                        <div class="car-collision"></div>
+                        <div class="wheel"></div>
+                        <div class="wheel"></div>
+                    </div>
+                    <div class="arrow">→</div>
+                    <div class="collision-box">
+                        <span style="font-size: 0.9em;">質量: 40<br>形状: Box</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="code-block">
+                <pre>// Bruno Simonの車物理設定
+const carBody = new CANNON.Body({
+    mass: <span class="highlight">40</span>,
+    shape: new CANNON.Box(new CANNON.Vec3(width/2, height/2, length/2)),
+    position: new CANNON.Vec3(0, 0, 12)
+});
+
+// Z軸周りに90度回転
+carBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), Math.PI / 2);
+
+// RaycastVehicleを使用
+const vehicle = new CANNON.RaycastVehicle({
+    chassisBody: carBody
+});</pre>
+            </div>
+            
+            <div class="comparison-grid">
+                <div class="comparison-card">
+                    <h3>RaycastVehicleの特徴</h3>
+                    <ul>
+                        <li>車体は1つのBoxコリジョン</li>
+                        <li>ホイールは物理的な実体を持たない</li>
+                        <li>レイキャストで地面との接触を検出</li>
+                        <li>より軽量で安定した挙動</li>
+                    </ul>
+                </div>
+                <div class="comparison-card">
+                    <h3>ホイール設定</h3>
+                    <ul>
+                        <li>半径: 0.25</li>
+                        <li>高さ: 0.24</li>
+                        <li>サスペンション剛性: 50</li>
+                        <li>摩擦スリップ: 10</li>
+                        <li>タイプ: KINEMATIC</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- オブジェクトのコリジョン設定 -->
+        <div class="section">
+            <h2>🏠 配置オブジェクトのコリジョン設定</h2>
+            
+            <div class="flow-diagram">
+                <div class="flow-step">
+                    <div class="step-number">1</div>
+                    <strong>3Dモデル作成</strong>
+                    <p>Blenderで作成</p>
+                </div>
+                <div class="flow-step">
+                    <div class="step-number">2</div>
+                    <strong>2つに分離</strong>
+                    <p>表示用・コリジョン用</p>
+                </div>
+                <div class="flow-step">
+                    <div class="step-number">3</div>
+                    <strong>命名規則</strong>
+                    <p>cube_01, box_01等</p>
+                </div>
+                <div class="flow-step">
+                    <div class="step-number">4</div>
+                    <strong>自動変換</strong>
+                    <p>物理ボディ生成</p>
+                </div>
+            </div>
+            
+            <div class="object-demo">
+                <div class="object-example">
+                    <div class="object-visual">
+                        <div class="tree-model">
+                            <div class="tree-collision"></div>
+                        </div>
+                    </div>
+                    <h4>木のコリジョン</h4>
+                    <p>複雑な形状 → シンプルなBox</p>
+                </div>
+                <div class="object-example">
+                    <div class="object-visual">
+                        <div class="sign-model">
+                            <div class="sign-collision"></div>
+                        </div>
+                    </div>
+                    <h4>看板のコリジョン</h4>
+                    <p>詳細なモデル → 単純なBox</p>
+                </div>
+            </div>
+            
+            <div class="code-block">
+                <pre>// オブジェクトの配置方法
+this.objects.add({
+    base: <span class="highlight">introStaticBase.scene</span>,        // 表示用の詳細モデル
+    collision: <span class="highlight">introStaticCollision.scene</span>, // コリジョン用のシンプルモデル
+    offset: new THREE.Vector3(0, 0, 0),
+    mass: 0  // 0 = 静的オブジェクト
+});</pre>
+            </div>
+        </div>
+        
+        <!-- 命名規則によるコリジョン生成 -->
+        <div class="section">
+            <h2>📦 命名規則による自動コリジョン生成</h2>
+            
+            <div class="code-block">
+                <pre>// Physics.jsの自動判定ロジック
+let shape = null;
+
+// メッシュ名から形状を自動判定
+if(mesh.name.match(/^cube_?[0-9]{0,3}?|box[0-9]{0,3}?$/i)) {
+    shape = <span class="highlight">'box'</span>;
+}
+else if(mesh.name.match(/^cylinder_?[0-9]{0,3}?$/i)) {
+    shape = <span class="highlight">'cylinder'</span>;
+}
+else if(mesh.name.match(/^sphere_?[0-9]{0,3}?$/i)) {
+    shape = <span class="highlight">'sphere'</span>;
+}
+
+// 形状に応じた物理ボディを生成
+if(shape === 'box') {
+    const halfExtents = new CANNON.Vec3(
+        mesh.scale.x * 0.5,
+        mesh.scale.y * 0.5,
+        mesh.scale.z * 0.5
+    );
+    shapeGeometry = new CANNON.Box(halfExtents);
+}</pre>
+            </div>
+            
+            <div class="warning">
+                <strong>注意：</strong>Bruno Simonは複雑な形状（ConvexPolyhedron、Trimesh）を使用していません。
+                全てのコリジョンはBox、Cylinder、Sphereの組み合わせで表現されています。
+            </div>
+        </div>
+        
+        <!-- 実装の推奨事項 -->
+        <div class="section">
+            <h2>💡 MapDrivingプロジェクトへの実装提案</h2>
+            
+            <div class="implementation-steps">
+                <div class="step-item" data-step="1">
+                    <div>
+                        <strong>コリジョン用モデルの作成</strong>
+                        <p>各アセット（Tree.glb、Sign.glb等）に対して、シンプルな形状だけで構成された
+                        コリジョン用モデル（Tree_collision.glb等）を作成する</p>
+                    </div>
+                </div>
+                
+                <div class="step-item" data-step="2">
+                    <div>
+                        <strong>命名規則の採用</strong>
+                        <p>コリジョン用モデル内のメッシュに「box_01」「cylinder_01」等の名前を付ける</p>
+                    </div>
+                </div>
+                
+                <div class="step-item" data-step="3">
+                    <div>
+                        <strong>自動変換システムの実装</strong>
+                        <p>Bruno Simonのような命名規則ベースの自動変換システムを実装</p>
+                    </div>
+                </div>
+                
+                <div class="step-item" data-step="4">
+                    <div>
+                        <strong>車のコリジョンをシンプル化</strong>
+                        <p>ConvexPolyhedronではなく、単純なBoxコリジョンに変更</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="comparison-grid">
+                <div class="comparison-card">
+                    <h3>現在の方式（問題あり）</h3>
+                    <ul style="color: #ff6b6b;">
+                        <li>1つのモデルから自動生成</li>
+                        <li>バウンディングボックスの精度問題</li>
+                        <li>ConvexPolyhedronの複雑さ</li>
+                        <li>パフォーマンスの懸念</li>
+                    </ul>
+                </div>
+                <div class="comparison-card">
+                    <h3>Bruno Simon方式（推奨）</h3>
+                    <ul style="color: #4ecdc4;">
+                        <li>表示とコリジョンを分離</li>
+                        <li>手動で最適化されたコリジョン</li>
+                        <li>シンプルな形状のみ使用</li>
+                        <li>軽量で高速</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- インタラクティブデモ -->
+        <div class="section">
+            <h2>🎮 コリジョン設定の比較デモ</h2>
+            
+            <div class="interactive-demo">
+                <p>以下のボタンをクリックして、それぞれの方式の違いを確認してください：</p>
+                
+                <button class="demo-button" onclick="showCurrentMethod()">現在の方式を表示</button>
+                <button class="demo-button" onclick="showBrunoMethod()">Bruno Simon方式を表示</button>
+                <button class="demo-button" onclick="showComparison()">比較を表示</button>
+                
+                <div id="demoResult" class="demo-result"></div>
+            </div>
+        </div>
+        
+        <!-- まとめ -->
+        <div class="section">
+            <h2>📋 まとめと次のステップ</h2>
+            
+            <div class="success">
+                <strong>結論：</strong>Bruno Simonの実装は、シンプルさとパフォーマンスの完璧なバランスを実現しています。
+                複雑な形状計算を避け、手動で最適化されたコリジョンモデルを使用することで、
+                正確で軽量な物理演算を実現できます。
+            </div>
+            
+            <h3>実装の優先順位</h3>
+            <ol>
+                <li><strong>即座に実装可能：</strong>車のコリジョンをシンプルなBoxに変更</li>
+                <li><strong>短期的な改善：</strong>アセットごとにコリジョン用モデルを作成</li>
+                <li><strong>長期的な最適化：</strong>命名規則ベースの自動変換システムの構築</li>
+            </ol>
+        </div>
+    </div>
+    
+    <script>
+        function showCurrentMethod() {
+            const result = document.getElementById('demoResult');
+            result.style.display = 'block';
+            result.innerHTML = `
+                <h3 style="color: #ff6b6b;">現在の方式の問題点</h3>
+                <ul>
+                    <li>🔴 バウンディングボックスが正確でない</li>
+                    <li>🔴 車のコリジョンが大きすぎる</li>
+                    <li>🔴 アセットのコリジョンが小さすぎる</li>
+                    <li>🔴 ConvexPolyhedronの計算が重い</li>
+                </ul>
+                <p>結果：プレイヤーが期待する当たり判定と実際の判定にズレが生じる</p>
+            `;
+        }
+        
+        function showBrunoMethod() {
+            const result = document.getElementById('demoResult');
+            result.style.display = 'block';
+            result.innerHTML = `
+                <h3 style="color: #4ecdc4;">Bruno Simon方式の利点</h3>
+                <ul>
+                    <li>✅ 手動で最適化されたコリジョン形状</li>
+                    <li>✅ シンプルな形状のみ使用（Box、Cylinder、Sphere）</li>
+                    <li>✅ 表示とコリジョンの完全な分離</li>
+                    <li>✅ 軽量で高速な処理</li>
+                </ul>
+                <p>結果：正確で直感的な当たり判定を実現</p>
+            `;
+        }
+        
+        function showComparison() {
+            const result = document.getElementById('demoResult');
+            result.style.display = 'block';
+            result.innerHTML = `
+                <h3>実装の比較</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                    <tr style="background: #252525;">
+                        <th style="padding: 10px; border: 1px solid #444;">項目</th>
+                        <th style="padding: 10px; border: 1px solid #444;">現在の方式</th>
+                        <th style="padding: 10px; border: 1px solid #444;">Bruno Simon方式</th>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #444;">実装の複雑さ</td>
+                        <td style="padding: 10px; border: 1px solid #444; color: #ff6b6b;">高い</td>
+                        <td style="padding: 10px; border: 1px solid #444; color: #4ecdc4;">低い</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #444;">パフォーマンス</td>
+                        <td style="padding: 10px; border: 1px solid #444; color: #ff6b6b;">重い</td>
+                        <td style="padding: 10px; border: 1px solid #444; color: #4ecdc4;">軽い</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #444;">精度</td>
+                        <td style="padding: 10px; border: 1px solid #444; color: #ff6b6b;">不正確</td>
+                        <td style="padding: 10px; border: 1px solid #444; color: #4ecdc4;">正確</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #444;">メンテナンス性</td>
+                        <td style="padding: 10px; border: 1px solid #444; color: #ff6b6b;">難しい</td>
+                        <td style="padding: 10px; border: 1px solid #444; color: #4ecdc4;">簡単</td>
+                    </tr>
+                </table>
+            `;
+        }
+        
+        // ページ読み込み時のアニメーション
+        window.addEventListener('load', () => {
+            const sections = document.querySelectorAll('.section');
+            sections.forEach((section, index) => {
+                section.style.opacity = '0';
+                section.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    section.style.transition = 'all 0.6s ease';
+                    section.style.opacity = '1';
+                    section.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html>

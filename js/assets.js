@@ -64,6 +64,10 @@ export class AssetsManager {
             console.log(`積み重ねキューブを${config.cubeStacks.length}個作成`);
             this.createCubeStacksFromData(config.cubeStacks);
         }
+        if (config.objects3d) {
+            console.log(`3Dオブジェクトを${config.objects3d.length}個作成`);
+            this.create3DObjectsFromData(config.objects3d);
+        }
     }
     
     createConesFromData(conesData) {
@@ -248,18 +252,198 @@ export class AssetsManager {
         console.log(`積み重ねキューブ作成完了: ${this.assets.filter(a => a.userData.type === 'cubeStack').length}個のキューブがシーンに存在`);
     }
     
+    create3DObjectsFromData(objects3dData) {
+        console.log(`3Dオブジェクト作成開始: ${objects3dData.length}個`);
+        
+        const loader = new THREE.GLTFLoader();
+        const scale = ASSETS_CONFIG.physics.object3d.scale || 1.0;
+        
+        objects3dData.forEach((obj, index) => {
+            const modelPath = this.getModelPath(obj.type);
+            if (!modelPath) {
+                console.warn(`不明なオブジェクトタイプ: ${obj.type}`);
+                return;
+            }
+            
+            loader.load(modelPath, (gltf) => {
+                const model = gltf.scene;
+                
+                // スケール調整を先に適用
+                const objectScale = this.getObjectScale(obj.type);
+                model.scale.set(objectScale, objectScale, objectScale);
+                
+                // 全ての変換行列を更新
+                model.updateMatrixWorld(true);
+                
+                // モデルの各メッシュのバウンディングボックスを計算してマージ
+                const box = new THREE.Box3();
+                let firstBox = true;
+                
+                model.traverse((child) => {
+                    if (child.isMesh && child.geometry) {
+                        // ジオメトリのバウンディングボックスを計算
+                        child.geometry.computeBoundingBox();
+                        const meshBox = child.geometry.boundingBox.clone();
+                        
+                        // メッシュのワールド変換を適用
+                        meshBox.applyMatrix4(child.matrixWorld);
+                        
+                        if (firstBox) {
+                            box.copy(meshBox);
+                            firstBox = false;
+                        } else {
+                            box.union(meshBox);
+                        }
+                    }
+                });
+                
+                const size = box.getSize(new THREE.Vector3());
+                const center = box.getCenter(new THREE.Vector3());
+                
+                // モデルを地面に接地させる
+                const groundOffset = -box.min.y;
+                model.position.set(obj.x, groundOffset, obj.z);
+                
+                if (obj.rotation) {
+                    model.rotation.y = (obj.rotation * Math.PI) / 180;
+                }
+                
+                // 影の設定
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                
+                model.userData.type = 'object3d';
+                model.userData.subType = obj.type;
+                model.userData.index = index;
+                model.userData.boundingBox = box;
+                model.userData.size = size;
+                model.userData.groundOffset = groundOffset; // 地面からのオフセットを保存
+                this.scene.add(model);
+                this.assets.push(model);
+                
+                // 物理ボディの追加（実際のバウンディングボックスに基づく）
+                this.createPhysicsBodyFor3DObjectWithBox(model, obj.type, obj.x, obj.z, size, groundOffset);
+                
+                console.log(`3Dオブジェクト「${obj.type}」を読み込みました`);
+                console.log(`  位置: (${obj.x}, ${groundOffset.toFixed(2)}, ${obj.z})`);
+                console.log(`  スケール: ${objectScale}`);
+                console.log(`  実際のサイズ: ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}`);
+                console.log(`  バウンディングボックス: min(${box.min.x.toFixed(2)}, ${box.min.y.toFixed(2)}, ${box.min.z.toFixed(2)}) max(${box.max.x.toFixed(2)}, ${box.max.y.toFixed(2)}, ${box.max.z.toFixed(2)}`);
+                console.log(`  地面オフセット: ${groundOffset.toFixed(2)}`);
+            }, (progress) => {
+                // 読み込み進捗
+            }, (error) => {
+                console.error(`3Dオブジェクト「${obj.type}」の読み込みエラー:`, error);
+            });
+        });
+        
+        console.log(`3Dオブジェクト作成完了`);
+    }
+    
+    getModelPath(type) {
+        const modelPaths = {
+            'bigRoadSign': 'assets/Object/BigRoadSign.glb',
+            'newsPaperStand': 'assets/Object/NewsPaperStand.glb',
+            'roadBlock': 'assets/Object/RoadBlock.glb',
+            'toyDuck': 'assets/Object/ToyDuck.glb',
+            'tramStop': 'assets/Object/TramStop.glb',
+            'tree': 'assets/Object/Tree.glb'
+        };
+        return modelPaths[type];
+    }
+    
+    getObjectScale(type) {
+        // 各オブジェクトのスケール調整
+        const scales = {
+            'bigRoadSign': 0.5,
+            'newsPaperStand': 0.8,
+            'roadBlock': 1.0,
+            'toyDuck': 0.3,
+            'tramStop': 0.6,
+            'tree': 1.5
+        };
+        return scales[type] || 1.0;
+    }
+    
+    createPhysicsBodyFor3DObject(model, type, x, z) {
+        // 簡易的なボックスコライダーを作成
+        const sizes = {
+            'bigRoadSign': { x: 4, y: 5, z: 0.5 },
+            'newsPaperStand': { x: 1, y: 1.5, z: 1 },
+            'roadBlock': { x: 2, y: 1, z: 0.5 },
+            'toyDuck': { x: 1, y: 1, z: 1 },
+            'tramStop': { x: 3, y: 3, z: 1 },
+            'tree': { x: 1, y: 5, z: 1 }
+        };
+        
+        const size = sizes[type] || { x: 1, y: 1, z: 1 };
+        const shape = new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2));
+        const body = new CANNON.Body({
+            mass: 0, // 静的オブジェクト
+            shape: shape,
+            position: new CANNON.Vec3(x, size.y/2, z)
+        });
+        
+        model.userData.body = body;
+        body.userData = { mesh: model };
+        
+        this.physicsWorld.world.addBody(body);
+        this.physicsBodies.push(body);
+    }
+    
+    createPhysicsBodyFor3DObjectWithBox(model, type, x, z, actualSize, groundOffset) {
+        // 物理ボディ用のサイズ（実際のサイズより少し小さめに設定することも可能）
+        const physicsSize = {
+            x: actualSize.x * 0.9,  // 少し小さめにして、見た目より当たり判定を控えめに
+            y: actualSize.y * 0.95,
+            z: actualSize.z * 0.9
+        };
+        
+        const shape = new CANNON.Box(new CANNON.Vec3(
+            physicsSize.x/2,
+            physicsSize.y/2,
+            physicsSize.z/2
+        ));
+        
+        // 物理ボディの位置を調整（地面オフセットを考慮）
+        const body = new CANNON.Body({
+            mass: 0, // 静的オブジェクト
+            shape: shape,
+            position: new CANNON.Vec3(x, groundOffset + physicsSize.y/2, z)
+        });
+        
+        model.userData.body = body;
+        model.userData.physicsHalfHeight = physicsSize.y / 2; // 物理ボディの半分の高さを保存
+        body.userData = { mesh: model };
+        
+        this.physicsWorld.world.addBody(body);
+        this.physicsBodies.push(body);
+        
+        console.log(`物理ボディを作成: ${type}`);
+        console.log(`  物理ボディ位置: Y=${(groundOffset + physicsSize.y/2).toFixed(2)}`);
+        console.log(`  物理サイズ: ${physicsSize.x.toFixed(2)} x ${physicsSize.y.toFixed(2)} x ${physicsSize.z.toFixed(2)}`);
+    }
+    
     createStartFinishLine() {
+        console.log('スタートラインを作成（物理ボディなし）');
+        
         const lineGeometry = new THREE.PlaneGeometry(10, 0.5);
         const lineMaterial = new THREE.MeshStandardMaterial({ 
             color: 0xffffff,
             emissive: 0xffffff,
-            emissiveIntensity: 0.2
+            emissiveIntensity: 0.2,
+            side: THREE.DoubleSide  // 両面表示
         });
         
         const startLine = new THREE.Mesh(lineGeometry, lineMaterial);
         startLine.rotation.x = -Math.PI / 2;
-        startLine.position.set(0, 0.01, 0);
+        startLine.position.set(0, -0.01, 0);  // 地面より少し下に配置
         startLine.userData.type = 'startLine';
+        startLine.receiveShadow = true;  // 影を受ける設定
         this.scene.add(startLine);
         this.assets.push(startLine);
         
@@ -274,8 +458,9 @@ export class AssetsManager {
                     });
                     const checker = new THREE.Mesh(checkerGeometry, checkerMaterial);
                     checker.rotation.x = -Math.PI / 2;
-                    checker.position.set(i * checkerSize + checkerSize / 2, 0.02, j * checkerSize - 0.25);
+                    checker.position.set(i * checkerSize + checkerSize / 2, -0.005, j * checkerSize - 0.25);  // 地面とほぼ同じ高さ
                     checker.userData.type = 'checker';
+                    checker.receiveShadow = true;
                     this.scene.add(checker);
                     this.assets.push(checker);
                 }
@@ -288,7 +473,18 @@ export class AssetsManager {
         this.physicsBodies.forEach(body => {
             if (body.userData && body.userData.mesh) {
                 const mesh = body.userData.mesh;
-                mesh.position.copy(body.position);
+                
+                // 3Dオブジェクトの場合、地面オフセットを考慮
+                if (mesh.userData.type === 'object3d' && mesh.userData.groundOffset !== undefined && mesh.userData.physicsHalfHeight !== undefined) {
+                    // 物理ボディの位置から視覚モデルの正しい位置を計算
+                    mesh.position.x = body.position.x;
+                    mesh.position.y = body.position.y - mesh.userData.physicsHalfHeight + mesh.userData.groundOffset;
+                    mesh.position.z = body.position.z;
+                } else {
+                    // その他のオブジェクトは通常通り
+                    mesh.position.copy(body.position);
+                }
+                
                 mesh.quaternion.copy(body.quaternion);
             }
         });

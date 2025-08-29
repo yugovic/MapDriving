@@ -20,64 +20,127 @@ export class Vehicle {
         this.createVehicle();
         this.createWheels();
         this.setupStabilization();
+        
+        // デバッグ：初期位置を確認
+        console.log('Vehicle initial position:', position);
+        console.log('Chassis body position:', this.chassisBody.position);
     }
     
     createChassis(position) {
-        const chassisShape = new CANNON.Box(new CANNON.Vec3(
-            CONFIG.VEHICLE.CHASSIS_SIZE.x / 2,
-            CONFIG.VEHICLE.CHASSIS_SIZE.y / 2,
-            CONFIG.VEHICLE.CHASSIS_SIZE.z / 2
-        ));
-        
+        // 複合ボディ用の空のボディを作成（形状は後で追加）
         this.chassisBody = new CANNON.Body({
-            mass: CONFIG.VEHICLE.MASS,
-            shape: chassisShape
+            mass: CONFIG.VEHICLE.MASS
         });
         this.chassisBody.position.set(position.x, position.y, position.z);
         
-        const geometry = new THREE.BoxGeometry(
-            CONFIG.VEHICLE.CHASSIS_SIZE.x,
-            CONFIG.VEHICLE.CHASSIS_SIZE.y,
-            CONFIG.VEHICLE.CHASSIS_SIZE.z
-        );
-        const material = new THREE.MeshStandardMaterial({ 
-            color: 0xff0000,
-            metalness: 0.6,
-            roughness: 0.4,
-            visible: false
-        });
-        
-        this.chassisMesh = new THREE.Mesh(geometry, material);
-        this.chassisMesh.castShadow = false;
-        this.chassisMesh.receiveShadow = false;
+        // 視覚的な車体用の空のグループ
+        this.chassisMesh = new THREE.Group();
         this.scene.add(this.chassisMesh);
+        
+        // コリジョンボックスの配列
+        this.collisionBoxes = [];
+        
+        // デバッグ用のヘルパー
+        this.debugHelpers = [];
+        this.showDebugCollision = false;
         
         this.loadCarModel();
     }
     
     loadCarModel() {
         const loader = new THREE.GLTFLoader();
-        loader.load('assets/Cars/rx7_sabana.glb', (gltf) => {
-            const model = gltf.scene;
-            model.scale.set(0.02, 0.02, 0.02);
-            model.position.set(0, -0.3, 0);
-            
-            model.traverse((child) => {
-                if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
+        loader.load('assets/Cars/RX7_Savanna.glb', (gltf) => {
+            try {
+                const model = gltf.scene;
+                console.log('=== RX7_Savanna.glb loaded, applying final scale and hierarchy fix ===');
+
+                const visualMeshes = [];
+                const collisionMeshes = [];
+                let visualMeshParentGroup = null;
+
+                // ステップ1: モデルを走査し、メッシュを分類、親グループを特定
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        if (child.name.includes('CollisionBox')) {
+                            collisionMeshes.push(child);
+                        } else {
+                            visualMeshes.push(child);
+                            // すべての表示メッシュは同じ親を持つと仮定
+                            if (!visualMeshParentGroup) {
+                                visualMeshParentGroup = child.parent;
+                            }
+                        }
+                    }
+                });
+
+                // ステップ2: 親グループからスケールを取得
+                const scale = visualMeshParentGroup ? visualMeshParentGroup.scale.clone() : new THREE.Vector3(1, 1, 1);
+                console.log(`[SCALE] Detected scale from parent group '${visualMeshParentGroup.name}':`, scale);
+
+                // ステップ3: 表示用メッシュをchassisMeshに直接追加し、スケールを適用
+                console.log('[REPARENT & RESCALE] Moving visual meshes and applying correct scale.');
+                visualMeshes.forEach(mesh => {
+                    // ワールド座標系での変換行列を取得
+                    mesh.updateWorldMatrix(true, false);
+                    const worldMatrix = mesh.matrixWorld.clone();
+
+                    // 親からデタッチ
+                    visualMeshParentGroup.remove(mesh);
+                    // chassisMeshにアタッチ
+                    this.chassisMesh.add(mesh);
+
+                    // ローカルの変換をリセット
+                    mesh.position.set(0, 0, 0);
+                    mesh.quaternion.set(0, 0, 0, 1);
+                    mesh.scale.set(1, 1, 1);
+
+                    // 元のワールド変換を適用
+                    mesh.applyMatrix4(worldMatrix);
+
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                });
+
+                // ステップ4: 衝突判定用メッシュを非表示にする
+                console.log('[VISIBILITY] Hiding collision meshes.');
+                collisionMeshes.forEach(mesh => {
+                    mesh.visible = false;
+                });
+
+                // ステップ5: 衝突判定用メッシュから物理ボディを生成する
+                if (collisionMeshes.length > 0) {
+                    console.log(`[PHYSICS] Creating compound physics body with ${collisionMeshes.length} shapes.`);
+                    collisionMeshes.forEach(mesh => {
+                        mesh.updateMatrixWorld(true);
+                        const box = new THREE.Box3().setFromObject(mesh);
+                        const size = box.getSize(new THREE.Vector3());
+                        const center = box.getCenter(new THREE.Vector3());
+                        const shape = new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2));
+                        const shapePosition = new CANNON.Vec3(center.x, center.y, center.z);
+                        this.chassisBody.addShape(shape, shapePosition);
+                    });
+                    this.chassisBody.updateMassProperties();
+                } else {
+                    console.warn('[PHYSICS] No collision boxes found. Using default chassis shape.');
+                    const chassisShape = new CANNON.Box(new CANNON.Vec3(CONFIG.VEHICLE.CHASSIS_SIZE.x / 2, CONFIG.VEHICLE.CHASSIS_SIZE.y / 2, CONFIG.VEHICLE.CHASSIS_SIZE.z / 2));
+                    this.chassisBody.addShape(chassisShape);
                 }
-            });
-            
-            this.chassisMesh.add(model);
-            this.isLoaded = true;
-            document.getElementById('loading').style.display = 'none';
-        }, (progress) => {
-            console.log('Loading progress:', (progress.loaded / progress.total * 100) + '%');
-        }, (error) => {
-            console.error('Error loading model:', error);
-            this.isLoaded = true;
-            document.getElementById('loading').style.display = 'none';
+
+                this.physicsWorld.world.addBody(this.chassisBody);
+                console.log('[PHYSICS] Chassis body added to the world.');
+
+                this.isLoaded = true;
+                const loadingElement = document.getElementById('loading');
+                if (loadingElement) {
+                    loadingElement.style.display = 'none';
+                }
+                console.log('Vehicle setup complete.');
+
+            } catch (loadError) {
+                console.error('An error occurred during vehicle setup:', loadError);
+            }
+        }, undefined, (error) => {
+            console.error('Error loading car model:', error);
         });
     }
     
@@ -156,6 +219,14 @@ export class Vehicle {
     
     update(input) {
         if (!this.vehicle) return;
+        
+        // デバッグ：車の位置を定期的に確認
+        if (Math.random() < 0.01) { // 1%の確率でログ出力（頻度を抑える）
+            console.log('Vehicle Y position:', this.chassisBody.position.y.toFixed(2));
+            if (this.chassisBody.position.y < -5) {
+                console.warn('Vehicle has fallen through the ground!');
+            }
+        }
         
         const maxSteerVal = CONFIG.VEHICLE.MAX_STEERING_VALUE;
         const steerIncrement = CONFIG.VEHICLE.STEERING_INCREMENT;
@@ -419,5 +490,15 @@ export class Vehicle {
             this.vehicle.wheelInfos[2].frictionSlip = friction;
             this.vehicle.wheelInfos[3].frictionSlip = friction;
         }
+    }
+    
+    // デバッグ表示の切り替え
+    toggleDebugCollision() {
+        this.showDebugCollision = !this.showDebugCollision;
+        this.debugHelpers.forEach(helper => {
+            helper.visible = this.showDebugCollision;
+        });
+        console.log(`Debug collision visualization: ${this.showDebugCollision ? 'ON' : 'OFF'}`);
+        return this.showDebugCollision;
     }
 }

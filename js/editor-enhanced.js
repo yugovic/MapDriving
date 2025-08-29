@@ -163,6 +163,20 @@ class EnhancedAssetEditor {
             });
         }
         
+        // 3Dオブジェクトの読み込み
+        if (ASSETS_CONFIG.objects3d) {
+            ASSETS_CONFIG.objects3d.forEach(obj => {
+                this.assets.push({
+                    type: 'object3d',
+                    subType: obj.type,
+                    x: obj.x,
+                    z: obj.z,
+                    rotation: obj.rotation || 0,
+                    id: this.generateId()
+                });
+            });
+        }
+        
         console.log('デフォルト設定から読み込んだアセット数:', this.assets.length);
         this.updateAssetList();
     }
@@ -178,6 +192,10 @@ class EnhancedAssetEditor {
                 document.querySelectorAll('.asset-button').forEach(b => b.classList.remove('selected'));
                 btn.classList.add('selected');
                 this.selectedAssetType = btn.dataset.type;
+                // 3Dオブジェクトの場合、サブタイプも保存
+                if (btn.dataset.type === 'object3d') {
+                    this.selectedSubtype = btn.dataset.subtype;
+                }
                 this.selectedAssets.clear();
                 this.render();
             });
@@ -474,6 +492,11 @@ class EnhancedAssetEditor {
         // 積み重ねキューブの場合、デフォルトの積み重ね数を設定
         if (this.selectedAssetType === 'cubeStack') {
             newAsset.count = 3; // デフォルトで3個
+        }
+        
+        // 3Dオブジェクトの場合、サブタイプを設定
+        if (this.selectedAssetType === 'object3d') {
+            newAsset.subtype = this.selectedSubtype;
         }
         
         this.assets.push(newAsset);
@@ -800,6 +823,8 @@ class EnhancedAssetEditor {
                 this.drawTire(pos.x, pos.y, isSelected, isHovered);
             } else if (asset.type === 'cubeStack') {
                 this.drawCubeStack(pos.x, pos.y, asset.count || 3, isSelected, isHovered);
+            } else if (asset.type === 'object3d') {
+                this.draw3DObject(pos.x, pos.y, asset.subType, isSelected, isHovered);
             }
             
             // 選択ハンドル
@@ -878,6 +903,40 @@ class EnhancedAssetEditor {
         this.ctx.fillText(count.toString(), x, y + 10);
     }
     
+    draw3DObject(x, y, subType, isSelected, isHovered) {
+        const iconSize = 8;
+        const icons = {
+            'bigRoadSign': { symbol: '⚠', color: '#ffcc00' },
+            'newsPaperStand': { symbol: '📰', color: '#999999' },
+            'roadBlock': { symbol: '🚧', color: '#ff6600' },
+            'toyDuck': { symbol: '🦆', color: '#ffdd00' },
+            'tramStop': { symbol: '🚏', color: '#0099ff' },
+            'tree': { symbol: '🌳', color: '#228822' }
+        };
+        
+        const icon = icons[subType] || { symbol: '❓', color: '#999999' };
+        
+        // 背景円
+        this.ctx.fillStyle = isSelected ? '#4ecdc4' : (isHovered ? '#666666' : '#444444');
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, iconSize, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // アイコン文字
+        this.ctx.fillStyle = icon.color;
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(icon.symbol, x, y);
+        
+        // 選択時の枠線
+        if (isSelected) {
+            this.ctx.strokeStyle = '#ff6b6b';
+            this.ctx.lineWidth = 2;
+            this.ctx.stroke();
+        }
+    }
+    
     drawSelectionHandles(x, y, type) {
         const size = 4;
         this.ctx.fillStyle = '#4ecdc4';
@@ -941,6 +1000,9 @@ class EnhancedAssetEditor {
             this.drawTire(pos.x, pos.y, false, false);
         } else if (this.selectedAssetType === 'cubeStack') {
             this.drawCubeStack(pos.x, pos.y, 3, false, false); // プレビューで3個固定
+        } else if (this.selectedAssetType && this.selectedAssetType.startsWith('object3d_')) {
+            const subType = this.selectedAssetType.replace('object3d_', '');
+            this.draw3DObject(pos.x, pos.y, subType, false, false);
         }
         
         this.ctx.restore();
@@ -972,8 +1034,30 @@ class EnhancedAssetEditor {
             
             const rotation = asset.rotation ? ` (${asset.rotation}°)` : '';
             const countInfo = asset.type === 'cubeStack' ? ` x${asset.count || 3}` : '';
+            
+            let typeDisplay;
+            if (asset.type === 'object3d') {
+                const objectNames = {
+                    'bigRoadSign': '大きな道路標識',
+                    'newsPaperStand': '新聞スタンド',
+                    'roadBlock': 'ロードブロック',
+                    'toyDuck': 'おもちゃのアヒル',
+                    'tramStop': 'トラム停留所',
+                    'tree': '木'
+                };
+                typeDisplay = objectNames[asset.subtype] || '3Dオブジェクト';
+            } else if (asset.type === 'cone') {
+                typeDisplay = 'コーン';
+            } else if (asset.type === 'tire') {
+                typeDisplay = 'タイヤバリア';
+            } else if (asset.type === 'cubeStack') {
+                typeDisplay = `積み重ねキューブ${countInfo}`;
+            } else {
+                typeDisplay = asset.type;
+            }
+            
             item.innerHTML = `
-                <span>${asset.type}${countInfo} (${asset.x}, ${asset.z})${rotation}</span>
+                <span>${typeDisplay} (${asset.x}, ${asset.z})${rotation}</span>
                 <button class="delete-btn" data-id="${asset.id}">削除</button>
             `;
             
@@ -1060,6 +1144,12 @@ class EnhancedAssetEditor {
                 z: a.z,
                 rotation: a.rotation || 0,
                 count: a.count || 3
+            })),
+            objects3d: this.assets.filter(a => a.type === 'object3d').map(a => ({ 
+                x: a.x, 
+                z: a.z,
+                rotation: a.rotation || 0,
+                type: a.subtype
             })),
             timestamp: Date.now()
         };

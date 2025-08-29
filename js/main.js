@@ -5,6 +5,7 @@ import { Vehicle } from './vehicle.js';
 import { MapManager } from './map.js';
 import { InputManager } from './input.js';
 import { AssetsManager } from './assets.js';
+import { PhysicsDebugRenderer } from './physics-debug.js';
 
 class Game {
     constructor() {
@@ -14,6 +15,7 @@ class Game {
         this.mapManager = null;
         this.inputManager = null;
         this.assetsManager = null;
+        this.physicsDebugRenderer = null;
         this.clock = new THREE.Clock();
         
         this.init();
@@ -29,7 +31,13 @@ class Game {
         this.vehicle = new Vehicle(
             this.sceneManager.scene,
             this.physicsWorld,
-            { x: 0, y: 2, z: 0 }
+            { x: 0, y: 3, z: 0 }
+        );
+        
+        // 物理デバッグレンダラーを初期化
+        this.physicsDebugRenderer = new PhysicsDebugRenderer(
+            this.sceneManager.scene,
+            this.physicsWorld
         );
         
         this.setupDebugMenu();
@@ -49,10 +57,13 @@ class Game {
         // アセットの物理更新
         this.assetsManager.update();
         
+        // 物理デバッグの更新
+        this.physicsDebugRenderer.update();
+        
         const vehiclePosition = this.vehicle.getPosition();
         
         if (this.mapManager.checkBounds(vehiclePosition)) {
-            this.vehicle.resetPosition({ x: 0, y: 2, z: 0 });
+            this.vehicle.resetPosition({ x: 0, y: 3, z: 0 });
         }
         
         if (this.vehicle.chassisBody) {
@@ -264,6 +275,26 @@ class Game {
             const value = parseFloat(e.target.value);
             sliders.rearFriction.value.textContent = value.toFixed(1);
             this.vehicle.updateRearWheelFriction(value);
+        });
+        
+        // コリジョンボックス表示切り替え
+        const showCollisionCheckbox = document.getElementById('showCollisionBoxes');
+        const collisionStatus = document.getElementById('collisionStatus');
+        
+        showCollisionCheckbox.addEventListener('change', (e) => {
+            const isShowing = this.vehicle.toggleDebugCollision();
+            collisionStatus.textContent = isShowing ? '表示中' : '非表示';
+            collisionStatus.style.color = isShowing ? '#4ecdc4' : '#888';
+        });
+        
+        // 物理デバッグ表示切り替え
+        const showPhysicsDebugCheckbox = document.getElementById('showPhysicsDebug');
+        const physicsDebugStatus = document.getElementById('physicsDebugStatus');
+        
+        showPhysicsDebugCheckbox.addEventListener('change', (e) => {
+            const isShowing = this.physicsDebugRenderer.toggle();
+            physicsDebugStatus.textContent = isShowing ? '表示中' : '非表示';
+            physicsDebugStatus.style.color = isShowing ? '#4ecdc4' : '#888';
         });
         
         closeDebugBtn.addEventListener('click', () => {

@@ -49,6 +49,33 @@ export const ASSETS_CONFIG = {
         { x: -10, z: -30, count: 4 }
     ],
     
+    // 3Dオブジェクトの配置
+    objects3d: [
+        // 道路標識（コース境界に配置）
+        { type: 'bigRoadSign', x: -60, z: 0, rotation: 90 },
+        { type: 'bigRoadSign', x: 60, z: 0, rotation: -90 },
+        
+        // 道路ブロック（シケイン用）
+        { type: 'roadBlock', x: 20, z: 25, rotation: 45 },
+        { type: 'roadBlock', x: -20, z: 35, rotation: -45 },
+        
+        // 木（コース外側）
+        { type: 'tree', x: -70, z: -30, rotation: 0 },
+        { type: 'tree', x: -70, z: 30, rotation: 0 },
+        { type: 'tree', x: 70, z: -20, rotation: 0 },
+        { type: 'tree', x: 70, z: 20, rotation: 0 },
+        
+        // トラム停留所（観戦エリア）
+        { type: 'tramStop', x: -80, z: 0, rotation: 90 },
+        
+        // 新聞スタンド（パドックエリア）
+        { type: 'newsPaperStand', x: 0, z: 50, rotation: 180 },
+        
+        // トイダック（コース上の障害物）
+        { type: 'toyDuck', x: 30, z: -15, rotation: 0 },
+        { type: 'toyDuck', x: -35, z: 10, rotation: 45 }
+    ],
+    
     // 物理設定
     physics: {
         cone: {
@@ -66,6 +93,11 @@ export const ASSETS_CONFIG = {
             restitution: 0.2,   // 低反発
             friction: 0.7,      // 中程度の摩擦
             size: 1.5           // キューブのサイズ
+        },
+        object3d: {
+            scale: 1.0,         // 3Dオブジェクトの基本スケール
+            castShadow: true,   // 影を落とす
+            receiveShadow: true // 影を受ける
         }
     }
 };

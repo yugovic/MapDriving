@@ -1,0 +1,74 @@
+name: バグ報告
+description: 不具合や想定外の挙動を報告します
+title: "[Bug] 問題の要約"
+labels: [bug, "status:needs-triage"]
+assignees: []
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: 何が起きているか1〜3行で要約してください。
+      placeholder: 例）エディターで保存した配置がゲームに反映されない
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: 問題を再現するための手順を箇条書きで記載してください。
+      placeholder: |
+        1. editor.html を開く
+        2. コーンを追加して「ゲームに適用」をクリック
+        3. index.html を再読み込み
+        4. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待結果
+      placeholder: 例）追加したコーンがゲームに表示される
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の結果
+      placeholder: 例）ゲームにコーンが表示されない／コンソールにエラーが出る
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: 環境情報
+      description: OS・ブラウザ・起動方法(例: npm start / python http.server)・ポート番号など
+      placeholder: |
+        - OS: macOS 14
+        - Browser: Chrome 126
+        - Run: npm start (http://localhost:5555)
+        - Three.js: r128 (CDN)
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: ログ/スクリーンショット
+      description: コンソールログやスクリーンショットがあれば貼ってください。
+      placeholder: エラーメッセージやNetworkタブの情報など
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: regression
+    attributes:
+      label: 回帰の可能性
+      options:
+        - label: 以前は正常に動作していた
+          required: false
+

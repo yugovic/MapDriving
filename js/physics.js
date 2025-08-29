@@ -33,14 +33,31 @@ export class PhysicsWorld {
     }
     
     createGround(groundMaterial) {
-        const groundShape = new CANNON.Box(new CANNON.Vec3(1000, 0.1, 1000));
+        // Boxを使用（より安定した地面）
+        const groundSize = 300; // マップサイズより大きめ
+        const groundThickness = 1;
+        const groundShape = new CANNON.Box(new CANNON.Vec3(groundSize/2, groundThickness/2, groundSize/2));
         const groundBody = new CANNON.Body({
             mass: 0,
             shape: groundShape,
-            material: groundMaterial
+            material: groundMaterial,
+            type: CANNON.Body.STATIC  // 明示的に静的ボディとして設定
         });
-        groundBody.position.set(0, -0.1, 0);
+        
+        // 地面の位置を設定（上面がY=0になるように）
+        groundBody.position.set(0, -groundThickness/2, 0);
+        
         this.world.addBody(groundBody);
+        
+        console.log('物理地面を作成: 300x300のBoxを使用');
+        
+        // デバッグ：地面の状態を確認
+        console.log('Ground body details:', {
+            position: groundBody.position,
+            size: { x: groundSize, y: groundThickness, z: groundSize },
+            type: groundBody.type,
+            mass: groundBody.mass
+        });
     }
     
     update(deltaTime) {
