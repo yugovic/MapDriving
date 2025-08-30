@@ -71,7 +71,12 @@ class EnhancedAssetEditor {
     }
     
     loadMapImage() {
-        this.mapImage.src = 'Asset/FSWMap.jpg';
+        // まず assets/ を試し、失敗したら Asset/ にフォールバック
+        this.mapImage.onerror = () => {
+            this.mapImage.onerror = null;
+            this.mapImage.src = 'Asset/FSWMap.jpg';
+        };
+        this.mapImage.src = 'assets/FSWMap.jpg';
         this.mapImage.onload = () => {
             this.mapImageLoaded = true;
             this.render();
@@ -107,6 +112,32 @@ class EnhancedAssetEditor {
                             x: pos.x,
                             z: pos.z,
                             rotation: pos.rotation || 0,
+                            id: this.generateId()
+                        });
+                    });
+                }
+
+                if (config.cubeStacks) {
+                    config.cubeStacks.forEach(stack => {
+                        this.assets.push({
+                            type: 'cubeStack',
+                            x: stack.x,
+                            z: stack.z,
+                            rotation: stack.rotation || 0,
+                            count: stack.count || 3,
+                            id: this.generateId()
+                        });
+                    });
+                }
+
+                if (config.objects3d) {
+                    config.objects3d.forEach(obj => {
+                        this.assets.push({
+                            type: 'object3d',
+                            subtype: obj.type,
+                            x: obj.x,
+                            z: obj.z,
+                            rotation: obj.rotation || 0,
                             id: this.generateId()
                         });
                     });
@@ -168,7 +199,7 @@ class EnhancedAssetEditor {
             ASSETS_CONFIG.objects3d.forEach(obj => {
                 this.assets.push({
                     type: 'object3d',
-                    subType: obj.type,
+                    subtype: obj.type,
                     x: obj.x,
                     z: obj.z,
                     rotation: obj.rotation || 0,
@@ -824,7 +855,7 @@ class EnhancedAssetEditor {
             } else if (asset.type === 'cubeStack') {
                 this.drawCubeStack(pos.x, pos.y, asset.count || 3, isSelected, isHovered);
             } else if (asset.type === 'object3d') {
-                this.draw3DObject(pos.x, pos.y, asset.subType, isSelected, isHovered);
+                this.draw3DObject(pos.x, pos.y, (asset.subtype || asset.subType), isSelected, isHovered);
             }
             
             // 選択ハンドル
@@ -1149,7 +1180,7 @@ class EnhancedAssetEditor {
                 x: a.x, 
                 z: a.z,
                 rotation: a.rotation || 0,
-                type: a.subtype
+                type: (a.subtype || a.subType)
             })),
             timestamp: Date.now()
         };
@@ -1204,6 +1235,18 @@ class EnhancedAssetEditor {
                 x: a.x, 
                 z: a.z,
                 rotation: a.rotation || 0
+            })),
+            cubeStacks: this.assets.filter(a => a.type === 'cubeStack').map(a => ({
+                x: a.x,
+                z: a.z,
+                rotation: a.rotation || 0,
+                count: a.count || 3
+            })),
+            objects3d: this.assets.filter(a => a.type === 'object3d').map(a => ({
+                x: a.x,
+                z: a.z,
+                rotation: a.rotation || 0,
+                type: (a.subtype || a.subType)
             }))
         };
         

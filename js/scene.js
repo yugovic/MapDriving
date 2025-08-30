@@ -54,7 +54,7 @@ export class SceneManager {
     }
     
     setupLighting() {
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
         this.scene.add(ambientLight);
         
         this.directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -69,7 +69,11 @@ export class SceneManager {
         this.directionalLight.shadow.camera.far = 200;
         this.directionalLight.shadow.mapSize.width = CONFIG.GRAPHICS.SHADOW_MAP_SIZE;
         this.directionalLight.shadow.mapSize.height = CONFIG.GRAPHICS.SHADOW_MAP_SIZE;
-        this.directionalLight.shadow.bias = -0.001;
+        // シャドウの品質調整：アクネ抑制とペーターパニング抑制のバランス
+        this.directionalLight.shadow.bias = -0.0005;
+        this.directionalLight.shadow.normalBias = 0.02;
+        // 影のぼかし（PCFSoftShadowMap使用時に有効）
+        this.directionalLight.shadow.radius = 2;
         
         this.scene.add(this.directionalLight);
         

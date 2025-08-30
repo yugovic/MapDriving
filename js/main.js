@@ -6,6 +6,7 @@ import { MapManager } from './map.js';
 import { InputManager } from './input.js';
 import { AssetsManager } from './assets.js';
 import { PhysicsDebugRenderer } from './physics-debug.js';
+import { AudioManager } from './audio.js';
 
 class Game {
     constructor() {
@@ -16,6 +17,7 @@ class Game {
         this.inputManager = null;
         this.assetsManager = null;
         this.physicsDebugRenderer = null;
+        this.audio = null;
         this.clock = new THREE.Clock();
         
         this.init();
@@ -27,6 +29,7 @@ class Game {
         this.mapManager = new MapManager(this.sceneManager.scene);
         this.inputManager = new InputManager();
         this.assetsManager = new AssetsManager(this.sceneManager.scene, this.physicsWorld);
+        this.audio = new AudioManager();
         
         this.vehicle = new Vehicle(
             this.sceneManager.scene,
@@ -41,6 +44,7 @@ class Game {
         );
         
         this.setupDebugMenu();
+        this.setupAudioHooks();
         this.animate();
     }
     
@@ -51,6 +55,23 @@ class Game {
         
         const input = this.inputManager.getInput();
         this.vehicle.update(input);
+
+        // Audio update (engine, turbo, screech, brake)
+        if (this.audio && this.vehicle) {
+            const speedKmh = this.vehicle.getSpeed();
+            this.audio.updateEngine(speedKmh, input.throttle, CONFIG.VEHICLE.MAX_SPEED);
+            this.audio.setTurbo(!!input.turbo);
+
+            // 簡易スリップ判定: 速度が出ていて強いステア or ブレーキ
+            if (speedKmh > 25 && (Math.abs(input.steering) > 0.6 || input.brake)) {
+                this.audio.playScreech(Math.min(1, (Math.abs(input.steering) + (input.brake ? 0.7 : 0))));
+            }
+            // ブレーキ短音（立ち上がり時）
+            if (!this._prevBrake && input.brake && speedKmh > 8) {
+                this.audio.playBrake(Math.min(1, speedKmh / 80));
+            }
+            this._prevBrake = input.brake;
+        }
         
         this.physicsWorld.update(deltaTime);
         
@@ -72,15 +93,42 @@ class Game {
         }
         
         this.mapManager.updateCarIndicator(vehiclePosition);
-        
-        this.updateSpeedometer(this.vehicle.getSpeed());
+
+        // HUD更新（速度・コンパス・バッジ）
+        this.updateHUD(
+            this.vehicle.getSpeed(),
+            this.vehicle.getRotation(),
+            input
+        );
         
         this.sceneManager.render();
     }
     
-    updateSpeedometer(speed) {
-        const speedElement = document.getElementById('speedValue');
-        speedElement.textContent = Math.round(speed);
+    updateHUD(speed, rotationRad, input) {
+        const speedEl = document.getElementById('speedValue');
+        const speedBar = document.getElementById('speedBar');
+        const turboBadge = document.getElementById('turboBadge');
+        const brakeBadge = document.getElementById('brakeBadge');
+        const speedometer = document.getElementById('speedometer');
+        const compassNeedle = document.getElementById('compassNeedle');
+
+        if (speedEl) speedEl.textContent = Math.round(speed);
+
+        // スピードバー（0〜MAX_SPEED）
+        const maxSpeed = CONFIG.VEHICLE.MAX_SPEED;
+        const ratio = Math.max(0, Math.min(1, speed / Math.max(1, maxSpeed)));
+        if (speedBar) speedBar.style.width = `${Math.round(ratio * 100)}%`;
+
+        // ターボ/ブレーキ表示
+        if (turboBadge) turboBadge.classList.toggle('show', !!input?.turbo);
+        if (brakeBadge) brakeBadge.classList.toggle('show', !!input?.brake);
+        if (speedometer) speedometer.classList.toggle('turbo', !!input?.turbo);
+
+        // コンパス（北=+Zを0°、時計回り）
+        if (compassNeedle && typeof rotationRad === 'number') {
+            const deg = (rotationRad * 180 / Math.PI) % 360;
+            compassNeedle.style.transform = `rotate(${-deg}deg)`; // 時計回りにするため符号反転
+        }
     }
     
     setupDebugMenu() {
@@ -120,6 +168,11 @@ class Game {
         
         this.inputManager.setCameraCallback(() => {
             this.sceneManager.toggleCameraMode();
+        });
+
+        // リセット（初期位置へ戻す）
+        this.inputManager.setResetCallback(() => {
+            this.vehicle.resetPosition({ x: 0, y: 3, z: 0 });
         });
         
         // マップサイズ
@@ -321,6 +374,18 @@ class Game {
                 reloadBtn.style.backgroundColor = '#4ecdc4';
             }, 2000);
         });
+    }
+
+    setupAudioHooks() {
+        if (!this.audio || !this.vehicle || !this.vehicle.chassisBody) return;
+        try {
+            this.vehicle.chassisBody.addEventListener('collide', (e) => {
+                if (!this.audio) return;
+                // 衝突強度の簡易推定: 車速に比例
+                const v = Math.min(1, this.vehicle.getSpeed() / 120);
+                this.audio.playCollision(0.4 + v * 0.8);
+            });
+        } catch (_) {}
     }
 }
 

@@ -12,6 +12,10 @@ export class Vehicle {
         this.currentSpeed = 0;
         this.isLoaded = false;
         
+        // 視覚専用の調整（物理には影響しない）
+        this.visualYOffset = 0;         // 車体メッシュのY方向オフセット
+        this.visualCalibrated = false;  // 初回にクリアランスを自動調整
+        
         this.init(position);
     }
     
@@ -107,19 +111,95 @@ export class Vehicle {
                     mesh.visible = false;
                 });
 
-                // ステップ5: 衝突判定用メッシュから物理ボディを生成する
+                // ステップ5: 衝突判定用メッシュから物理ボディを生成する（ローカルオフセット/回転を正確に反映）
                 if (collisionMeshes.length > 0) {
                     console.log(`[PHYSICS] Creating compound physics body with ${collisionMeshes.length} shapes.`);
+
+                    // 複合ボディの基準原点（全コリジョンの中心）を求める
+                    const globalBox = new THREE.Box3();
+                    let hasBox = false;
                     collisionMeshes.forEach(mesh => {
                         mesh.updateMatrixWorld(true);
-                        const box = new THREE.Box3().setFromObject(mesh);
-                        const size = box.getSize(new THREE.Vector3());
-                        const center = box.getCenter(new THREE.Vector3());
-                        const shape = new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2));
-                        const shapePosition = new CANNON.Vec3(center.x, center.y, center.z);
-                        this.chassisBody.addShape(shape, shapePosition);
+                        if (mesh.geometry) {
+                            if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+                            const bb = mesh.geometry.boundingBox.clone();
+                            bb.applyMatrix4(mesh.matrixWorld);
+                            if (!hasBox) { globalBox.copy(bb); hasBox = true; } else { globalBox.union(bb); }
+                        } else {
+                            const bb = new THREE.Box3().setFromObject(mesh);
+                            if (!hasBox) { globalBox.copy(bb); hasBox = true; } else { globalBox.union(bb); }
+                        }
+                    });
+                    const modelCenterWorld = globalBox.getCenter(new THREE.Vector3());
+
+                    collisionMeshes.forEach(mesh => {
+                        try {
+                            mesh.updateMatrixWorld(true);
+
+                            // ジオメトリのローカルAABBから半径を取得し、ワールドスケールを反映
+                            if (mesh.geometry && !mesh.geometry.boundingBox) {
+                                mesh.geometry.computeBoundingBox();
+                            }
+                            const bb = mesh.geometry && mesh.geometry.boundingBox
+                                ? mesh.geometry.boundingBox.clone()
+                                : new THREE.Box3().setFromObject(mesh);
+
+                            const localSize = new THREE.Vector3().subVectors(bb.max, bb.min);
+                            const localCenter = new THREE.Vector3().addVectors(bb.min, bb.max).multiplyScalar(0.5);
+
+                            const worldScale = new THREE.Vector3();
+                            mesh.getWorldScale(worldScale);
+
+                            const halfExtents = new CANNON.Vec3(
+                                (localSize.x * worldScale.x) / 2,
+                                (localSize.y * worldScale.y) / 2,
+                                (localSize.z * worldScale.z) / 2
+                            );
+
+                            const shape = new CANNON.Box(halfExtents);
+
+                            // ローカル中心をワールドへ → ボディ原点相対に変換
+                            const centerWorld = localCenter.clone().applyMatrix4(mesh.matrixWorld);
+                            const offset = new CANNON.Vec3(
+                                centerWorld.x - modelCenterWorld.x,
+                                centerWorld.y - modelCenterWorld.y,
+                                centerWorld.z - modelCenterWorld.z
+                            );
+
+                            // ワールド回転をボディ回転（初期は単位）に対して相対回転へ
+                            const qWorld = new THREE.Quaternion();
+                            mesh.getWorldQuaternion(qWorld);
+                            const qShape = new CANNON.Quaternion(qWorld.x, qWorld.y, qWorld.z, qWorld.w);
+
+                            this.chassisBody.addShape(shape, offset, qShape);
+                        } catch (e) {
+                            console.warn('[PHYSICS] Failed to add collision shape from mesh:', mesh.name, e);
+                        }
                     });
                     this.chassisBody.updateMassProperties();
+                    // コリジョン外形からホイールの接続位置を再調整
+                    try {
+                        const extents = globalBox.getSize(new THREE.Vector3());
+                        const width = extents.x;
+                        const length = extents.z;
+                        const axisWidth = width * 0.42;
+                        const zOffset = length * 0.4;
+                        if (this.vehicle && this.vehicle.wheelInfos.length >= 4) {
+                            this.vehicle.wheelInfos[0].chassisConnectionPointLocal.x = -axisWidth;
+                            this.vehicle.wheelInfos[1].chassisConnectionPointLocal.x = axisWidth;
+                            this.vehicle.wheelInfos[2].chassisConnectionPointLocal.x = -axisWidth;
+                            this.vehicle.wheelInfos[3].chassisConnectionPointLocal.x = axisWidth;
+
+                            this.vehicle.wheelInfos[0].chassisConnectionPointLocal.z = zOffset;
+                            this.vehicle.wheelInfos[1].chassisConnectionPointLocal.z = zOffset;
+                            this.vehicle.wheelInfos[2].chassisConnectionPointLocal.z = -zOffset;
+                            this.vehicle.wheelInfos[3].chassisConnectionPointLocal.z = -zOffset;
+                        }
+                    } catch (e) {
+                        console.warn('Failed to auto-adjust wheel positions:', e);
+                    }
+                    // 目標ワールド位置へ車体を配置（ビジュアルと一致）
+                    // 複合ボディをモデル中心に構築しているため、body位置はそのまま初期位置でOK
                 } else {
                     console.warn('[PHYSICS] No collision boxes found. Using default chassis shape.');
                     const chassisShape = new CANNON.Box(new CANNON.Vec3(CONFIG.VEHICLE.CHASSIS_SIZE.x / 2, CONFIG.VEHICLE.CHASSIS_SIZE.y / 2, CONFIG.VEHICLE.CHASSIS_SIZE.z / 2));
@@ -135,6 +215,8 @@ export class Vehicle {
                     loadingElement.style.display = 'none';
                 }
                 console.log('Vehicle setup complete.');
+
+                // 可視の初期調整（実影に任せるため丸影は使用しない）
 
             } catch (loadError) {
                 console.error('An error occurred during vehicle setup:', loadError);
@@ -284,10 +366,32 @@ export class Vehicle {
     
     updateVisuals() {
         if (this.chassisMesh && this.chassisBody) {
-            this.chassisMesh.position.copy(this.chassisBody.position);
+            // 見た目専用のYオフセットを適用
+            this.chassisMesh.position.set(
+                this.chassisBody.position.x,
+                this.chassisBody.position.y + this.visualYOffset,
+                this.chassisBody.position.z
+            );
             this.chassisMesh.quaternion.copy(this.chassisBody.quaternion);
+
+            // 初回だけ、見た目のクリアランスを自動キャリブレーション（地面=Y:0基準）
+            if (this.isLoaded && !this.visualCalibrated) {
+                try {
+                    const box = new THREE.Box3().setFromObject(this.chassisMesh);
+                    const currentBottomY = box.min.y; // 世界座標での最下点
+                    const diff = CONFIG.VISUAL.TARGET_CLEARANCE - currentBottomY;
+                    // 過度なジャンプを避けるため、現実的な範囲にクランプ（±0.25m）
+                    const clamped = Math.max(-0.25, Math.min(0.25, diff));
+                    this.visualYOffset += clamped;
+                    this.visualCalibrated = true;
+                    console.log(`[VISUAL] Calibrated visualYOffset by ${clamped.toFixed(3)}m (bottomY=${currentBottomY.toFixed(3)})`);
+                } catch (e) {
+                    console.warn('Visual clearance auto calibration failed:', e);
+                    this.visualCalibrated = true; // 二重実行を避ける
+                }
+            }
         }
-        
+
         this.vehicle.wheelInfos.forEach((wheel, index) => {
             if (this.wheelMeshes[index]) {
                 this.vehicle.updateWheelTransform(index);
@@ -296,6 +400,8 @@ export class Vehicle {
                 this.wheelMeshes[index].quaternion.copy(transform.quaternion);
             }
         });
+
+        // 実影（シャドウマップ）を使用するため、丸影の追従処理は不要
     }
     
     getPosition() {
@@ -501,4 +607,6 @@ export class Vehicle {
         console.log(`Debug collision visualization: ${this.showDebugCollision ? 'ON' : 'OFF'}`);
         return this.showDebugCollision;
     }
+
+    // 丸影方式は不採用（実影に統一）
 }

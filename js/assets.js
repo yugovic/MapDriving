@@ -415,6 +415,10 @@ export class AssetsManager {
             shape: shape,
             position: new CANNON.Vec3(x, groundOffset + physicsSize.y/2, z)
         });
+        // Yaw回転（modelの回転を物理にも反映）
+        const q = new THREE.Quaternion();
+        model.getWorldQuaternion(q);
+        body.quaternion.set(q.x, q.y, q.z, q.w);
         
         model.userData.body = body;
         model.userData.physicsHalfHeight = physicsSize.y / 2; // 物理ボディの半分の高さを保存
@@ -619,43 +623,47 @@ export class AssetsManager {
         console.log('既存アセットをクリア中...');
         console.log('削除前のアセット数:', this.assets.length);
         console.log('削除前の物理ボディ数:', this.physicsBodies.length);
-        
-        // スタートライン以外のThree.jsメッシュを削除
-        const assetsToRemove = this.assets.filter(asset => 
-            asset.userData.type === 'cone' || asset.userData.type === 'tire' || asset.userData.type === 'cubeStack'
-        );
-        
-        console.log('削除対象のアセット数:', assetsToRemove.length);
-        
-        assetsToRemove.forEach(asset => {
-            console.log(`削除中: ${asset.userData.type} at (${asset.position.x}, ${asset.position.z})`);
-            this.scene.remove(asset);
-            if (asset.geometry) asset.geometry.dispose();
-            if (asset.material) asset.material.dispose();
-            // userDataのクリア
-            if (asset.userData.body) {
-                asset.userData.body = null;
-            }
-        });
-        
-        // スタートライン以外を削除
-        this.assets = this.assets.filter(asset => 
-            asset.userData.type !== 'cone' && asset.userData.type !== 'tire'
-        );
-        
-        // 物理ボディを削除
+
+        // 物理ボディをすべて削除
         console.log('物理ボディを削除中...');
         this.physicsBodies.forEach(body => {
-            console.log(`物理ボディ削除: position=(${body.position.x}, ${body.position.z})`);
-            // userDataのクリア
-            if (body.userData) {
-                body.userData.mesh = null;
-                body.userData = null;
+            try {
+                console.log(`物理ボディ削除: position=(${Math.round(body.position.x)}, ${Math.round(body.position.z)})`);
+                if (body.userData) {
+                    body.userData.mesh = null;
+                    body.userData = null;
+                }
+                this.physicsWorld.world.removeBody(body);
+            } catch (e) {
+                console.warn('物理ボディ削除時の警告:', e);
             }
-            this.physicsWorld.world.removeBody(body);
         });
         this.physicsBodies = [];
-        
+
+        // Three.jsメッシュをすべて削除（本クラスで生成・管理しているもの）
+        const removableCount = this.assets.length;
+        this.assets.forEach(asset => {
+            try {
+                const type = asset?.userData?.type || 'unknown';
+                console.log(`表示オブジェクト削除: type=${type}`);
+                this.scene.remove(asset);
+                if (asset.geometry) asset.geometry.dispose();
+                if (asset.material) {
+                    // マテリアルが配列の場合にも対応
+                    if (Array.isArray(asset.material)) {
+                        asset.material.forEach(m => m && m.dispose && m.dispose());
+                    } else {
+                        asset.material.dispose && asset.material.dispose();
+                    }
+                }
+            } catch (e) {
+                console.warn('表示オブジェクト削除時の警告:', e);
+            }
+        });
+
+        this.assets = [];
+
+        console.log('削除対象のアセット数:', removableCount);
         console.log('削除後のアセット数:', this.assets.length);
         console.log('削除後の物理ボディ数:', this.physicsBodies.length);
         console.log('シーンの子要素数:', this.scene.children.length);

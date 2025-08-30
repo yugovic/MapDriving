@@ -37,7 +37,12 @@ class AssetEditor {
     }
     
     loadMapImage() {
-        this.mapImage.src = 'Asset/FSWMap.jpg';
+        // まず assets/ を試し、失敗したら Asset/ にフォールバック
+        this.mapImage.onerror = () => {
+            this.mapImage.onerror = null;
+            this.mapImage.src = 'Asset/FSWMap.jpg';
+        };
+        this.mapImage.src = 'assets/FSWMap.jpg';
         this.mapImage.onload = () => {
             this.mapImageLoaded = true;
             this.render();

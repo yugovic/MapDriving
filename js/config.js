@@ -26,6 +26,14 @@ export const CONFIG = {
         }
     },
     
+    // 見た目調整（物理には影響しない）
+    VISUAL: {
+        // 車体の最下点と地面の目標クリアランス（m）。描画のみの調整。
+        TARGET_CLEARANCE: 0.04,
+        // ドロップシャドウの不透明度
+        SHADOW_OPACITY: 0.5
+    },
+    
     MAP: {
         SCALE: 0.5,
         BOUNDS: {

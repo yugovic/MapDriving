@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "http-server -p 5555",
+    "dev": "http-server -p 5555 -c-1",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

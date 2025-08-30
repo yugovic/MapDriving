@@ -12,17 +12,44 @@ export class MapManager {
         this.init();
     }
     
-    init() {
-        this.loadMapTexture();
+    async init() {
+        await this.loadMapTexture();
         this.createMapGround();
     }
     
     loadMapTexture() {
-        const textureLoader = new THREE.TextureLoader();
-        this.mapTexture = textureLoader.load('Asset/FSWMap.jpg', () => {
-            console.log('Map texture loaded successfully');
+        return new Promise((resolve, reject) => {
+            const textureLoader = new THREE.TextureLoader();
+
+            const onLoaded = (tex, label) => {
+                tex.encoding = THREE.sRGBEncoding;
+                tex.anisotropy = 4;
+                this.mapTexture = tex;
+                console.log(`Map texture loaded successfully (${label})`);
+                resolve();
+            };
+
+            // まず assets/ を試し、失敗したら Asset/ をフォールバック
+            const tex1 = textureLoader.load(
+                'assets/FSWMap.jpg',
+                (tex) => onLoaded(tex, 'assets/') ,
+                undefined,
+                () => {
+                    console.warn('assets/FSWMap.jpg の読み込みに失敗。Asset/ へフォールバック');
+                    const tex2 = textureLoader.load(
+                        'Asset/FSWMap.jpg',
+                        (tex) => onLoaded(tex, 'Asset/'),
+                        undefined,
+                        (err) => {
+                            console.error('Map texture load failed (both paths).', err);
+                            reject(err);
+                        }
+                    );
+                    // tex2 は onLoad で反映
+                }
+            );
+            // tex1 は onLoad で反映
         });
-        this.mapTexture.encoding = THREE.sRGBEncoding;
     }
     
     createMapGround() {

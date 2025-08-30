@@ -11,6 +11,7 @@ export class InputManager {
         
         this.debugCallback = null;
         this.cameraCallback = null;
+        this.resetCallback = null;
         
         this.init();
     }
@@ -58,6 +59,11 @@ export class InputManager {
                     this.cameraCallback();
                 }
                 break;
+            case 'r':
+                if (this.resetCallback) {
+                    this.resetCallback();
+                }
+                break;
         }
     }
     
@@ -103,5 +109,9 @@ export class InputManager {
     
     setCameraCallback(callback) {
         this.cameraCallback = callback;
+    }
+
+    setResetCallback(callback) {
+        this.resetCallback = callback;
     }
 }
