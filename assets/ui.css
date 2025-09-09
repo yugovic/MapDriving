@@ -29,7 +29,7 @@ body {
   overflow: hidden;
   color: hsl(var(--fg));
   background: rgb(var(--bg));
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", Arial, sans-serif;
+  font-family: "Noto Sans JP", system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", "Yu Gothic", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -55,6 +55,17 @@ body {
   width: 10px;
   height: 10px;
   background: hsl(0 0% 100%);
+  border: 2px solid rgb(var(--surface));
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+/* AI indicator (blue) */
+#aiIndicator {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: hsl(217 100% 68%);
   border: 2px solid rgb(var(--surface));
   border-radius: 50%;
   transform: translate(-50%, -50%);
@@ -250,4 +261,3 @@ body {
   font-size: 14px;
 }
 #closeDebug:hover { filter: brightness(0.95); }
-

@@ -6,6 +6,7 @@ export class MapManager {
         this.mapTexture = null;
         this.mapMesh = null;
         this.carIndicator = document.getElementById('carIndicator');
+        this.aiIndicator = document.getElementById('aiIndicator');
         this.currentScale = 0.5;
         this.baseSize = { width: 250, height: 150 };
         
@@ -85,6 +86,24 @@ export class MapManager {
         
         this.carIndicator.style.left = `${indicatorX}px`;
         this.carIndicator.style.top = `${indicatorY}px`;
+    }
+
+    updateAIIndicator(aiPosition) {
+        if (!this.aiIndicator) return;
+        const mapWidth = 300;
+        const mapHeight = 200;
+
+        const halfWidth = this.baseSize.width * this.currentScale / 2;
+        const halfHeight = this.baseSize.height * this.currentScale / 2;
+
+        const normalizedX = (aiPosition.x + halfWidth) / (halfWidth * 2);
+        const normalizedZ = (aiPosition.z + halfHeight) / (halfHeight * 2);
+
+        const indicatorX = normalizedX * mapWidth;
+        const indicatorY = normalizedZ * mapHeight;
+
+        this.aiIndicator.style.left = `${indicatorX}px`;
+        this.aiIndicator.style.top = `${indicatorY}px`;
     }
     
     checkBounds(position) {

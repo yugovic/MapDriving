@@ -6,6 +6,7 @@ import { MapManager } from './map.js';
 import { InputManager } from './input.js';
 import { AssetsManager } from './assets.js';
 import { PhysicsDebugRenderer } from './physics-debug.js';
+import { AIController } from './ai.js';
 import { AudioManager } from './audio.js';
 
 class Game {
@@ -13,11 +14,13 @@ class Game {
         this.sceneManager = null;
         this.physicsWorld = null;
         this.vehicle = null;
+        this.aiVehicle = null;
         this.mapManager = null;
         this.inputManager = null;
         this.assetsManager = null;
         this.physicsDebugRenderer = null;
         this.audio = null;
+        this.aiController = null;
         this.clock = new THREE.Clock();
         
         this.init();
@@ -35,6 +38,20 @@ class Game {
             this.sceneManager.scene,
             this.physicsWorld,
             { x: 0, y: 3, z: 0 }
+        );
+
+        // AI車両を生成（初期位置は少し離す）
+        this.aiVehicle = new Vehicle(
+            this.sceneManager.scene,
+            this.physicsWorld,
+            { x: 12, y: 3, z: -10 }
+        );
+
+        // AI制御器（プレイヤー追跡）
+        this.aiController = new AIController(
+            this.aiVehicle,
+            () => ({ position: this.vehicle.getPosition() }),
+            { desiredDist: 8, accelDist: 16, brakeDist: 4, useTurbo: false }
         );
         
         // 物理デバッグレンダラーを初期化
@@ -55,6 +72,10 @@ class Game {
         
         const input = this.inputManager.getInput();
         this.vehicle.update(input);
+
+        // AI更新（低コスト）
+        const aiInput = this.aiController.update(deltaTime);
+        this.aiVehicle.update(aiInput);
 
         // Audio update (engine, turbo, screech, brake)
         if (this.audio && this.vehicle) {
@@ -86,6 +107,11 @@ class Game {
         if (this.mapManager.checkBounds(vehiclePosition)) {
             this.vehicle.resetPosition({ x: 0, y: 3, z: 0 });
         }
+
+        const aiPosition = this.aiVehicle.getPosition();
+        if (this.mapManager.checkBounds(aiPosition)) {
+            this.aiVehicle.resetPosition({ x: 12, y: 3, z: -10 });
+        }
         
         if (this.vehicle.chassisBody) {
             const adjustments = this.sceneManager.camera.userData.adjustments || CONFIG.CAMERA.ADJUSTMENTS;
@@ -93,6 +119,7 @@ class Game {
         }
         
         this.mapManager.updateCarIndicator(vehiclePosition);
+        this.mapManager.updateAIIndicator(aiPosition);
 
         // HUD更新（速度・コンパス・バッジ）
         this.updateHUD(
