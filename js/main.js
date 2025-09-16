@@ -8,6 +8,7 @@ import { AssetsManager } from './assets.js';
 import { PhysicsDebugRenderer } from './physics-debug.js';
 import { AIController } from './ai.js';
 import { AudioManager } from './audio.js';
+import { FieldManager } from './field.js';
 
 class Game {
     constructor() {
@@ -21,6 +22,7 @@ class Game {
         this.physicsDebugRenderer = null;
         this.audio = null;
         this.aiController = null;
+        this.fieldManager = null;
         this.clock = new THREE.Clock();
         
         this.init();
@@ -31,6 +33,8 @@ class Game {
         this.physicsWorld = new PhysicsWorld();
         this.mapManager = new MapManager(this.sceneManager.scene);
         this.inputManager = new InputManager();
+        // フィールド（GLB）
+        this.fieldManager = new FieldManager(this.sceneManager.scene, this.physicsWorld);
         this.assetsManager = new AssetsManager(this.sceneManager.scene, this.physicsWorld);
         this.audio = new AudioManager();
         
@@ -69,8 +73,15 @@ class Game {
         requestAnimationFrame(() => this.animate());
         
         const deltaTime = this.clock.getDelta();
-        
+
         const input = this.inputManager.getInput();
+        // フィールドの床が用意されたら、初回だけ車両を床上に移動
+        if (!this._floorSpawnApplied && this.fieldManager && typeof this.fieldManager.floorSurfaceY === 'number') {
+            const spawn = this.getSpawnSettings();
+            this.vehicle.resetPosition(spawn.player, spawn.rotationY);
+            this.aiVehicle.resetPosition(spawn.ai, spawn.rotationY);
+            this._floorSpawnApplied = true;
+        }
         this.vehicle.update(input);
 
         // AI更新（低コスト）
@@ -103,15 +114,7 @@ class Game {
         this.physicsDebugRenderer.update();
         
         const vehiclePosition = this.vehicle.getPosition();
-        
-        if (this.mapManager.checkBounds(vehiclePosition)) {
-            this.vehicle.resetPosition({ x: 0, y: 3, z: 0 });
-        }
-
         const aiPosition = this.aiVehicle.getPosition();
-        if (this.mapManager.checkBounds(aiPosition)) {
-            this.aiVehicle.resetPosition({ x: 12, y: 3, z: -10 });
-        }
         
         if (this.vehicle.chassisBody) {
             const adjustments = this.sceneManager.camera.userData.adjustments || CONFIG.CAMERA.ADJUSTMENTS;
@@ -188,7 +191,43 @@ class Game {
             frontFriction: { slider: document.getElementById('frontFrictionSlider'), value: document.getElementById('frontFrictionValue') },
             rearFriction: { slider: document.getElementById('rearFrictionSlider'), value: document.getElementById('rearFrictionValue') }
         };
-        
+
+        const setSliderFromConfig = (key, rawValue, formatter = (v) => `${v}`) => {
+            const target = sliders[key];
+            if (!target || !target.slider) return;
+            if (typeof rawValue !== 'number' || Number.isNaN(rawValue)) return;
+            target.slider.value = rawValue;
+            if (target.value) {
+                target.value.textContent = formatter(rawValue);
+            }
+        };
+
+        const vehicleCfg = CONFIG.VEHICLE || {};
+        const stabilizationCfg = vehicleCfg.STABILIZATION || {};
+
+        setSliderFromConfig('mapSize', CONFIG.MAP?.SCALE, (v) => `${v.toFixed(2)}x`);
+        setSliderFromConfig('mass', vehicleCfg.MASS);
+        setSliderFromConfig('maxSpeed', vehicleCfg.MAX_SPEED);
+        setSliderFromConfig('engineForce', vehicleCfg.ENGINE_FORCE);
+        setSliderFromConfig('turbo', vehicleCfg.TURBO_MULTIPLIER, (v) => v.toFixed(1));
+        setSliderFromConfig('brakeForce', vehicleCfg.BRAKE_FORCE);
+        setSliderFromConfig('steeringIncrement', vehicleCfg.STEERING_INCREMENT, (v) => v.toFixed(3));
+        setSliderFromConfig('maxSteering', vehicleCfg.MAX_STEERING_VALUE, (v) => v.toFixed(2));
+        setSliderFromConfig('wheelRadius', vehicleCfg.WHEEL_RADIUS, (v) => v.toFixed(2));
+        setSliderFromConfig('wheelWidth', vehicleCfg.WHEEL_WIDTH, (v) => v.toFixed(2));
+        setSliderFromConfig('suspensionStiffness', vehicleCfg.WHEEL_SUSPENSION_STIFFNESS);
+        setSliderFromConfig('suspensionDamping', vehicleCfg.WHEEL_SUSPENSION_DAMPING);
+        setSliderFromConfig('suspensionCompression', vehicleCfg.WHEEL_SUSPENSION_COMPRESSION, (v) => v.toFixed(1));
+        setSliderFromConfig('suspensionRestLength', vehicleCfg.WHEEL_SUSPENSION_REST_LENGTH, (v) => v.toFixed(2));
+        setSliderFromConfig('frictionSlip', vehicleCfg.WHEEL_FRICTION_SLIP);
+        setSliderFromConfig('chassisWidth', vehicleCfg.CHASSIS_SIZE?.x, (v) => v.toFixed(1));
+        setSliderFromConfig('chassisHeight', vehicleCfg.CHASSIS_SIZE?.y, (v) => v.toFixed(2));
+        setSliderFromConfig('chassisLength', vehicleCfg.CHASSIS_SIZE?.z, (v) => v.toFixed(1));
+        setSliderFromConfig('downForce', stabilizationCfg.DOWN_FORCE);
+        setSliderFromConfig('angularDamping', stabilizationCfg.ANGULAR_DAMPING, (v) => v.toFixed(1));
+        setSliderFromConfig('frontFriction', vehicleCfg.WHEEL_FRONT_FRICTION_SLIP, (v) => v.toFixed(1));
+        setSliderFromConfig('rearFriction', vehicleCfg.WHEEL_REAR_FRICTION_SLIP, (v) => v.toFixed(1));
+
         this.inputManager.setDebugCallback(() => {
             debugModal.style.display = debugModal.style.display === 'block' ? 'none' : 'block';
         });
@@ -199,9 +238,11 @@ class Game {
 
         // リセット（初期位置へ戻す）
         this.inputManager.setResetCallback(() => {
-            this.vehicle.resetPosition({ x: 0, y: 3, z: 0 });
+            const spawn = this.getSpawnSettings();
+            this.vehicle.resetPosition(spawn.player, spawn.rotationY);
+            this.aiVehicle.resetPosition(spawn.ai, spawn.rotationY);
         });
-        
+
         // マップサイズ
         sliders.mapSize.slider.addEventListener('input', (e) => {
             const scale = parseFloat(e.target.value);
@@ -209,6 +250,69 @@ class Game {
             this.mapManager.updateMapSize(scale);
             this.assetsManager.updateScale(scale);
         });
+
+        // フィールド（GLB）トランスフォーム
+        const fieldScaleSlider = document.getElementById('fieldScaleSlider');
+        const fieldScaleValue = document.getElementById('fieldScaleValue');
+        const fieldRotateYSlider = document.getElementById('fieldRotateYSlider');
+        const fieldRotateYValue = document.getElementById('fieldRotateYValue');
+        const fieldPosXSlider = document.getElementById('fieldPosXSlider');
+        const fieldPosXValue = document.getElementById('fieldPosXValue');
+        const fieldPosYSlider = document.getElementById('fieldPosYSlider');
+        const fieldPosYValue = document.getElementById('fieldPosYValue');
+        const fieldPosZSlider = document.getElementById('fieldPosZSlider');
+        const fieldPosZValue = document.getElementById('fieldPosZValue');
+
+        // 初期値を設定（CONFIG から）
+        try {
+            if (fieldScaleSlider && fieldScaleValue) {
+                const s = CONFIG.FIELD?.SCALE ?? 1.0;
+                fieldScaleSlider.value = s;
+                fieldScaleValue.textContent = s.toFixed(2);
+            }
+            if (fieldRotateYSlider && fieldRotateYValue) {
+                const r = CONFIG.FIELD?.ROTATE_Y_DEG ?? 0;
+                fieldRotateYSlider.value = r;
+                fieldRotateYValue.textContent = `${Math.round(r)}°`;
+            }
+            if (fieldPosXSlider && fieldPosXValue && fieldPosYSlider && fieldPosYValue && fieldPosZSlider && fieldPosZValue) {
+                const p = CONFIG.FIELD?.POSITION || { x: 0, y: 0, z: 0 };
+                fieldPosXSlider.value = p.x || 0;
+                fieldPosXValue.textContent = `${Number(p.x || 0)}`;
+                fieldPosYSlider.value = p.y || 0;
+                fieldPosYValue.textContent = `${Number(p.y || 0).toFixed(1)}`;
+                fieldPosZSlider.value = p.z || 0;
+                fieldPosZValue.textContent = `${Number(p.z || 0)}`;
+            }
+        } catch (_) {}
+
+        const applyFieldPosition = () => {
+            const x = parseFloat(fieldPosXSlider.value);
+            const y = parseFloat(fieldPosYSlider.value);
+            const z = parseFloat(fieldPosZSlider.value);
+            fieldPosXValue.textContent = `${x}`;
+            fieldPosYValue.textContent = `${y.toFixed(1)}`;
+            fieldPosZValue.textContent = `${z}`;
+            if (this.fieldManager) this.fieldManager.setPosition(x, y, z);
+        };
+
+        if (fieldScaleSlider) {
+            fieldScaleSlider.addEventListener('input', (e) => {
+                const s = parseFloat(e.target.value);
+                fieldScaleValue.textContent = s.toFixed(2);
+                if (this.fieldManager) this.fieldManager.setScale(s);
+            });
+        }
+        if (fieldRotateYSlider) {
+            fieldRotateYSlider.addEventListener('input', (e) => {
+                const r = parseFloat(e.target.value);
+                fieldRotateYValue.textContent = `${Math.round(r)}°`;
+                if (this.fieldManager) this.fieldManager.setRotationY(r);
+            });
+        }
+        if (fieldPosXSlider) fieldPosXSlider.addEventListener('input', applyFieldPosition);
+        if (fieldPosYSlider) fieldPosYSlider.addEventListener('input', applyFieldPosition);
+        if (fieldPosZSlider) fieldPosZSlider.addEventListener('input', applyFieldPosition);
         
         // 車両質量
         sliders.mass.slider.addEventListener('input', (e) => {
@@ -376,6 +480,18 @@ class Game {
             physicsDebugStatus.textContent = isShowing ? '表示中' : '非表示';
             physicsDebugStatus.style.color = isShowing ? '#4ecdc4' : '#888';
         });
+
+        // マップ削除ボタン
+        const removeMapBtn = document.getElementById('removeMapBtn');
+        const removeMapStatus = document.getElementById('removeMapStatus');
+        if (removeMapBtn) {
+            removeMapBtn.addEventListener('click', () => {
+                this.mapManager.removeMap();
+                removeMapStatus.textContent = 'マップを削除しました';
+                removeMapStatus.style.color = '#ff6b6b';
+                setTimeout(() => { removeMapStatus.textContent = ''; }, 2000);
+            });
+        }
         
         closeDebugBtn.addEventListener('click', () => {
             debugModal.style.display = 'none';
@@ -403,6 +519,31 @@ class Game {
         });
     }
 
+    getSpawnSettings() {
+        const defaultFloorY = (this.fieldManager && typeof this.fieldManager.floorSurfaceY === 'number')
+            ? this.fieldManager.floorSurfaceY
+            : 0;
+        const spawnInfo = (this.fieldManager && typeof this.fieldManager.getSpawnInfo === 'function')
+            ? this.fieldManager.getSpawnInfo()
+            : null;
+
+        const player = spawnInfo?.position
+            ? { ...spawnInfo.position }
+            : { x: 0, y: defaultFloorY + 2.0, z: 0 };
+
+        const ai = spawnInfo?.aiPosition
+            ? { ...spawnInfo.aiPosition }
+            : { x: 12, y: defaultFloorY + 2.0, z: -10 };
+
+        const rotationY = spawnInfo?.rotationYRad ?? 0;
+
+        return {
+            player,
+            ai,
+            rotationY
+        };
+    }
+
     setupAudioHooks() {
         if (!this.audio || !this.vehicle || !this.vehicle.chassisBody) return;
         try {
@@ -417,5 +558,6 @@ class Game {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    new Game();
+    const g = new Game();
+    try { window.game = g; } catch (_) {}
 });

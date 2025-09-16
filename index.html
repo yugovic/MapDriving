@@ -58,6 +58,36 @@
                     <input type="range" id="mapSizeSlider" min="0.25" max="4" step="0.25" value="0.5">
                     <div class="debug-value" id="mapSizeValue">0.50x</div>
                 </div>
+
+                <div class="debug-control">
+                    <label for="fieldScaleSlider">フィールド スケール</label>
+                    <input type="range" id="fieldScaleSlider" min="0.1" max="5" step="0.1" value="1.0">
+                    <div class="debug-value" id="fieldScaleValue">1.0</div>
+                </div>
+
+                <div class="debug-control">
+                    <label for="fieldRotateYSlider">フィールド 回転Y (°)</label>
+                    <input type="range" id="fieldRotateYSlider" min="-180" max="180" step="1" value="0">
+                    <div class="debug-value" id="fieldRotateYValue">0°</div>
+                </div>
+
+                <div class="debug-control">
+                    <label for="fieldPosXSlider">フィールド 位置X</label>
+                    <input type="range" id="fieldPosXSlider" min="-200" max="200" step="1" value="0">
+                    <div class="debug-value" id="fieldPosXValue">0</div>
+                </div>
+
+                <div class="debug-control">
+                    <label for="fieldPosYSlider">フィールド 位置Y</label>
+                    <input type="range" id="fieldPosYSlider" min="-10" max="10" step="0.1" value="0">
+                    <div class="debug-value" id="fieldPosYValue">0.0</div>
+                </div>
+
+                <div class="debug-control">
+                    <label for="fieldPosZSlider">フィールド 位置Z</label>
+                    <input type="range" id="fieldPosZSlider" min="-200" max="200" step="1" value="0">
+                    <div class="debug-value" id="fieldPosZValue">0</div>
+                </div>
                 
                 <div class="debug-control">
                     <label for="massSlider">車両質量</label>
@@ -202,6 +232,11 @@
                     </label>
                     <span id="physicsDebugStatus" style="color: #888; font-size: 0.9em; margin-left: 20px;"></span>
                 </div>
+            </div>
+            
+            <div style="margin: 10px 0; display: flex; gap: 10px; align-items: center;">
+                <button id="removeMapBtn" class="danger">マップを削除</button>
+                <span id="removeMapStatus" style="color: #888; font-size: 0.9em;"></span>
             </div>
             
             <button id="closeDebug">閉じる (Ctrl+M)</button>

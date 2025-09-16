@@ -17,7 +17,7 @@ export const CONFIG = {
         WHEEL_MAX_SUSPENSION_FORCE: 100000,
         WHEEL_FRICTION_SLIP: 8,
         WHEEL_FRONT_FRICTION_SLIP: 20,
-        WHEEL_REAR_FRICTION_SLIP: 2,
+        WHEEL_REAR_FRICTION_SLIP: 15,
         CHASSIS_SIZE: { x: 1.3, y: 0.75, z: 2.8 },
         STABILIZATION: {
             ANGULAR_DAMPING: 0.4,
@@ -73,5 +73,30 @@ export const CONFIG = {
     GRAPHICS: {
         SHADOW_MAP_SIZE: 2048,
         ANTIALIAS: true
+    },
+
+    // フィールド（GLB）読み込み設定
+    FIELD: {
+        ENABLED: true,                 // フィールドの読み込みを有効化
+        GLB_FILE: 'Field/FJ_CIRCUIT_Revised.glb', // 相対パス（先頭の assets/ は不要）。assets/ と Asset/ を順に試行
+        SCALE: 1.0,                     // モデルスケール
+        POSITION: { x: 0, y: 0, z: 0 }, // モデルの平行移動
+        ROTATE_Y_DEG: 0,                // Y軸回転（度数法）
+        USE_AS_GROUND: true,            // フィールドの床を物理的な地面として使用
+        GROUND_NAME_HINTS: ['ground', 'Ground'], // これらの名前を含むメッシュを地面とみなす
+        SIDEWALL_NAME_HINTS: ['sidewall', 'Sidewall'], // これらの名前を含むメッシュを壁とみなす
+        SPAWN: {
+            NAME_HINTS: ['start', 'Start', 'StartLine'],
+            POSITION_OFFSET: { x: 0, y: 2.0, z: 0 },
+            AI_OFFSET: { x: -4, y: 0, z: -6 },
+            ROTATE_Y_DEG: 0
+        },
+        // 柱の検出ロジック（ヒューリスティック）
+        PILLAR_DETECTION: {
+            NAME_HINTS: ['pillar', 'Pillar', 'pole', 'Pole', 'column', 'Column', '柱'],
+            HEIGHT_RATIO: 3.0,          // 高さ > (幅または奥行) * 係数 で柱とみなす
+            MAX_DIAMETER: 3.0,          // 幅と奥行の最大値がこの値以下なら細柱とみなす
+            COLLIDER_SHRINK: 0.9        // 当たり判定を見た目より少し小さくする係数
+        }
     }
 };

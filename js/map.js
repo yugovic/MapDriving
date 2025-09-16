@@ -136,4 +136,18 @@ export class MapManager {
             this.scene.add(this.mapMesh);
         }
     }
+
+    removeMap() {
+        // 3D地面メッシュをシーンから削除（復元は再読み込みで）
+        if (this.mapMesh) {
+            try {
+                this.scene.remove(this.mapMesh);
+                if (this.mapMesh.geometry) this.mapMesh.geometry.dispose();
+                if (this.mapMesh.material) this.mapMesh.material.dispose && this.mapMesh.material.dispose();
+            } catch (_) {}
+            this.mapMesh = null;
+        }
+        // テクスチャは残す（再生成時に使用するため）。完全削除したい場合は下記コメントアウト解除
+        // if (this.mapTexture) { this.mapTexture.dispose(); this.mapTexture = null; }
+    }
 }

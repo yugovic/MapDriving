@@ -420,13 +420,29 @@ export class Vehicle {
         return this.currentSpeed;
     }
     
-    resetPosition(position) {
-        if (this.chassisBody) {
-            this.chassisBody.position.set(position.x, position.y, position.z);
-            this.chassisBody.velocity.set(0, 0, 0);
-            this.chassisBody.angularVelocity.set(0, 0, 0);
-            this.chassisBody.quaternion.set(0, 0, 0, 1);
+    resetPosition(position, rotationYRad = 0) {
+        if (!this.chassisBody) return;
+
+        this.chassisBody.position.set(position.x, position.y, position.z);
+        this.chassisBody.velocity.set(0, 0, 0);
+        this.chassisBody.angularVelocity.set(0, 0, 0);
+        const quat = new CANNON.Quaternion();
+        quat.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), rotationYRad);
+        this.chassisBody.quaternion.copy(quat);
+
+        if (this.vehicle) {
+            this.vehicle.currentVehicleSpeedKmHour = 0;
+            if (typeof this.vehicle.setSteeringValue === 'function') {
+                this.vehicle.wheelInfos.forEach((info, idx) => {
+                    if (info?.isFrontWheel) {
+                        try { this.vehicle.setSteeringValue(0, idx); } catch (_) {}
+                    }
+                });
+            }
         }
+
+        this.currentSpeed = 0;
+        this.updateVisuals();
     }
     
     // 動的パラメータ更新メソッド

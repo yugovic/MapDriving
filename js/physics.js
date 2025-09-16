@@ -3,6 +3,9 @@ import { CONFIG } from './config.js';
 export class PhysicsWorld {
     constructor() {
         this.world = new CANNON.World();
+        this.groundMaterial = null;
+        this.wheelMaterial = null;
+        this.groundBody = null;
         this.init();
     }
     
@@ -15,6 +18,8 @@ export class PhysicsWorld {
         
         const groundMaterial = new CANNON.Material('ground');
         const wheelMaterial = new CANNON.Material('wheel');
+        this.groundMaterial = groundMaterial;
+        this.wheelMaterial = wheelMaterial;
         
         const wheelGroundContactMaterial = new CANNON.ContactMaterial(
             wheelMaterial,
@@ -48,6 +53,7 @@ export class PhysicsWorld {
         groundBody.position.set(0, -groundThickness/2, 0);
         
         this.world.addBody(groundBody);
+        this.groundBody = groundBody;
         
         console.log('物理地面を作成: 300x300のBoxを使用');
         
@@ -58,6 +64,14 @@ export class PhysicsWorld {
             type: groundBody.type,
             mass: groundBody.mass
         });
+    }
+
+    removeGround() {
+        if (this.groundBody) {
+            try { this.world.removeBody(this.groundBody); } catch (_) {}
+            this.groundBody = null;
+            console.log('既定の物理地面を削除しました');
+        }
     }
     
     update(deltaTime) {
