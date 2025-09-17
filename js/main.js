@@ -24,6 +24,7 @@ class Game {
         this.aiController = null;
         this.fieldManager = null;
         this.clock = new THREE.Clock();
+        this._occlusionTarget = new THREE.Vector3();
         
         this.init();
     }
@@ -119,6 +120,12 @@ class Game {
         if (this.vehicle.chassisBody) {
             const adjustments = this.sceneManager.camera.userData.adjustments || CONFIG.CAMERA.ADJUSTMENTS;
             this.sceneManager.updateCameraPosition(this.vehicle.chassisBody, adjustments);
+            this._occlusionTarget.set(
+                this.vehicle.chassisBody.position.x,
+                this.vehicle.chassisBody.position.y + CONFIG.CAMERA.FOLLOW_MODE.LOOK_AT_HEIGHT,
+                this.vehicle.chassisBody.position.z
+            );
+            this.sceneManager.updateCameraOcclusion(this._occlusionTarget);
         }
         
         this.mapManager.updateCarIndicator(vehiclePosition);
@@ -174,6 +181,13 @@ class Game {
             engineForce: { slider: document.getElementById('engineForceSlider'), value: document.getElementById('engineForceValue') },
             turbo: { slider: document.getElementById('turboSlider'), value: document.getElementById('turboValue') },
             brakeForce: { slider: document.getElementById('brakeForceSlider'), value: document.getElementById('brakeForceValue') },
+            cameraFov: { slider: document.getElementById('cameraFovSlider'), value: document.getElementById('cameraFovValue') },
+            cameraDistance: { slider: document.getElementById('cameraDistanceSlider'), value: document.getElementById('cameraDistanceValue') },
+            cameraHeight: { slider: document.getElementById('cameraHeightSlider'), value: document.getElementById('cameraHeightValue') },
+            cameraSideOffset: { slider: document.getElementById('cameraSideOffsetSlider'), value: document.getElementById('cameraSideOffsetValue') },
+            followDistance: { slider: document.getElementById('followDistanceSlider'), value: document.getElementById('followDistanceValue') },
+            followHeight: { slider: document.getElementById('followHeightSlider'), value: document.getElementById('followHeightValue') },
+            followLookHeight: { slider: document.getElementById('followLookHeightSlider'), value: document.getElementById('followLookHeightValue') },
             steeringIncrement: { slider: document.getElementById('steeringIncrementSlider'), value: document.getElementById('steeringIncrementValue') },
             maxSteering: { slider: document.getElementById('maxSteeringSlider'), value: document.getElementById('maxSteeringValue') },
             wheelRadius: { slider: document.getElementById('wheelRadiusSlider'), value: document.getElementById('wheelRadiusValue') },
@@ -211,6 +225,13 @@ class Game {
         setSliderFromConfig('engineForce', vehicleCfg.ENGINE_FORCE);
         setSliderFromConfig('turbo', vehicleCfg.TURBO_MULTIPLIER, (v) => v.toFixed(1));
         setSliderFromConfig('brakeForce', vehicleCfg.BRAKE_FORCE);
+        setSliderFromConfig('cameraFov', CONFIG.CAMERA?.FOV, (v) => `${v.toFixed(1)}°`);
+        setSliderFromConfig('cameraDistance', CONFIG.CAMERA?.ADJUSTMENTS?.DISTANCE, (v) => `${v.toFixed(1)}m`);
+        setSliderFromConfig('cameraHeight', CONFIG.CAMERA?.ADJUSTMENTS?.HEIGHT, (v) => `${v.toFixed(1)}m`);
+        setSliderFromConfig('cameraSideOffset', CONFIG.CAMERA?.ADJUSTMENTS?.SIDE_OFFSET, (v) => `${v.toFixed(1)}m`);
+        setSliderFromConfig('followDistance', CONFIG.CAMERA?.FOLLOW_MODE?.DISTANCE, (v) => `${v.toFixed(1)}m`);
+        setSliderFromConfig('followHeight', CONFIG.CAMERA?.FOLLOW_MODE?.HEIGHT, (v) => `${v.toFixed(1)}m`);
+        setSliderFromConfig('followLookHeight', CONFIG.CAMERA?.FOLLOW_MODE?.LOOK_AT_HEIGHT, (v) => `${v.toFixed(1)}m`);
         setSliderFromConfig('steeringIncrement', vehicleCfg.STEERING_INCREMENT, (v) => v.toFixed(3));
         setSliderFromConfig('maxSteering', vehicleCfg.MAX_STEERING_VALUE, (v) => v.toFixed(2));
         setSliderFromConfig('wheelRadius', vehicleCfg.WHEEL_RADIUS, (v) => v.toFixed(2));
@@ -295,6 +316,68 @@ class Game {
             fieldPosZValue.textContent = `${z}`;
             if (this.fieldManager) this.fieldManager.setPosition(x, y, z);
         };
+
+        if (sliders.cameraFov.slider) {
+            sliders.cameraFov.slider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                sliders.cameraFov.value.textContent = `${value.toFixed(1)}°`;
+                CONFIG.CAMERA.FOV = value;
+                if (this.sceneManager) this.sceneManager.setCameraFov(value);
+            });
+        }
+
+        const syncCameraAdjustments = () => {
+            if (this.sceneManager && this.sceneManager.camera) {
+                this.sceneManager.camera.userData.adjustments = CONFIG.CAMERA.ADJUSTMENTS;
+            }
+        };
+
+        if (sliders.cameraDistance.slider) {
+            sliders.cameraDistance.slider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                CONFIG.CAMERA.ADJUSTMENTS.DISTANCE = value;
+                sliders.cameraDistance.value.textContent = `${value.toFixed(1)}m`;
+                syncCameraAdjustments();
+            });
+        }
+        if (sliders.cameraHeight.slider) {
+            sliders.cameraHeight.slider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                CONFIG.CAMERA.ADJUSTMENTS.HEIGHT = value;
+                sliders.cameraHeight.value.textContent = `${value.toFixed(1)}m`;
+                syncCameraAdjustments();
+            });
+        }
+        if (sliders.cameraSideOffset.slider) {
+            sliders.cameraSideOffset.slider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                CONFIG.CAMERA.ADJUSTMENTS.SIDE_OFFSET = value;
+                sliders.cameraSideOffset.value.textContent = `${value.toFixed(1)}m`;
+                syncCameraAdjustments();
+            });
+        }
+
+        if (sliders.followDistance.slider) {
+            sliders.followDistance.slider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                CONFIG.CAMERA.FOLLOW_MODE.DISTANCE = value;
+                sliders.followDistance.value.textContent = `${value.toFixed(1)}m`;
+            });
+        }
+        if (sliders.followHeight.slider) {
+            sliders.followHeight.slider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                CONFIG.CAMERA.FOLLOW_MODE.HEIGHT = value;
+                sliders.followHeight.value.textContent = `${value.toFixed(1)}m`;
+            });
+        }
+        if (sliders.followLookHeight.slider) {
+            sliders.followLookHeight.slider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                CONFIG.CAMERA.FOLLOW_MODE.LOOK_AT_HEIGHT = value;
+                sliders.followLookHeight.value.textContent = `${value.toFixed(1)}m`;
+            });
+        }
 
         if (fieldScaleSlider) {
             fieldScaleSlider.addEventListener('input', (e) => {

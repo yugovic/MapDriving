@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { CameraOcclusionHelper } from './util/camera-occlusion-helper.js';
 
 export class SceneManager {
     constructor() {
@@ -8,6 +9,7 @@ export class SceneManager {
         this.container = null;
         this.cameraMode = 'overview'; // 'overview' or 'follow'
         this.followCameraTarget = new THREE.Vector3();
+        this.cameraOcclusionHelper = new CameraOcclusionHelper();
         
         this.init();
     }
@@ -154,5 +156,16 @@ export class SceneManager {
     
     render() {
         this.renderer.render(this.scene, this.camera);
+    }
+
+    updateCameraOcclusion(targetPosition) {
+        if (!this.cameraOcclusionHelper || !targetPosition) return;
+        this.cameraOcclusionHelper.update(this.scene, this.camera, targetPosition);
+    }
+
+    setCameraFov(fov) {
+        if (!this.camera || typeof fov !== 'number' || Number.isNaN(fov)) return;
+        this.camera.fov = fov;
+        this.camera.updateProjectionMatrix();
     }
 }
