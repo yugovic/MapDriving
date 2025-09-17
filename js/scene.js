@@ -97,15 +97,18 @@ export class SceneManager {
     updateCameraPosition(target, offset = CONFIG.CAMERA.ADJUSTMENTS) {
         const targetPosition = new THREE.Vector3().copy(target.position);
         
+        const adjustments = offset || this.camera.userData.adjustments || CONFIG.CAMERA.ADJUSTMENTS;
+
         if (this.cameraMode === 'overview') {
             // 俯瞰視点
             const idealPosition = new THREE.Vector3(
-                targetPosition.x + offset.SIDE_OFFSET,
-                targetPosition.y + offset.HEIGHT,
-                targetPosition.z + offset.DISTANCE
+                targetPosition.x + adjustments.SIDE_OFFSET,
+                targetPosition.y + adjustments.HEIGHT,
+                targetPosition.z + adjustments.DISTANCE
             );
             
-            this.camera.position.lerp(idealPosition, offset.FOLLOW_FACTOR);
+            const followFactor = adjustments.FOLLOW_FACTOR ?? CONFIG.CAMERA.ADJUSTMENTS.FOLLOW_FACTOR;
+            this.camera.position.lerp(idealPosition, followFactor);
             this.camera.lookAt(targetPosition);
         } else if (this.cameraMode === 'follow') {
             // 追従視点

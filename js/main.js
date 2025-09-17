@@ -118,8 +118,7 @@ class Game {
         const aiPosition = this.aiVehicle.getPosition();
         
         if (this.vehicle.chassisBody) {
-            const adjustments = this.sceneManager.camera.userData.adjustments || CONFIG.CAMERA.ADJUSTMENTS;
-            this.sceneManager.updateCameraPosition(this.vehicle.chassisBody, adjustments);
+            this.sceneManager.updateCameraPosition(this.vehicle.chassisBody);
             this._occlusionTarget.set(
                 this.vehicle.chassisBody.position.x,
                 this.vehicle.chassisBody.position.y + CONFIG.CAMERA.FOLLOW_MODE.LOOK_AT_HEIGHT,

@@ -51,8 +51,8 @@ export const CONFIG = {
         FAR: 1000,
         INITIAL_POSITION: { x: -15, y: 15, z: 15 },
         ADJUSTMENTS: {
-            DISTANCE: 15,
-            HEIGHT: 10,
+            DISTANCE: 30,
+            HEIGHT: 25,
             SIDE_OFFSET: 0,
             FOLLOW_FACTOR: 0.1
         },
